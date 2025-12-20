@@ -16,13 +16,14 @@
     "@email-assistant/config": "workspace:*",
     "@email-assistant/shared": "workspace:*",
     "@email-assistant/types": "workspace:*",
-    "@mastra/core": "^0.5.0",
-    "@mastra/memory": "^0.3.2",
-    "@mastra/libsql": "^0.3.2",
+    "@mastra/core": "^0.24.9",
+    "@mastra/memory": "^0.15.13",
+    "@mastra/libsql": "^0.16.4",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "mastra": "^0.18.9",
     "typescript": "^5.7.2"
   }
 }
