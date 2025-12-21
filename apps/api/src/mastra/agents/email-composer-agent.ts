@@ -45,7 +45,7 @@ When composing:
 - Offer multiple options when appropriate
 - Explain your suggestions
 - Be mindful of cultural differences in communication`,
-  model: 'openai:gpt-4o',
+  model: 'openai/gpt-4o',
   tools: {
     draftReplyTool,
     sendEmailTool,
