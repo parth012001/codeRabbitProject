@@ -53,6 +53,15 @@ export const connectGmailTool = createTool({
 
       const authResult = await authorizeGmail(context.userId);
 
+      // User already has an active connection
+      if (authResult.alreadyConnected) {
+        return {
+          success: true,
+          message: 'Gmail is already connected for this user.',
+          alreadyConnected: true,
+        };
+      }
+
       if (!authResult.redirectUrl || typeof authResult.redirectUrl !== 'string') {
         return {
           success: false,
@@ -151,9 +160,23 @@ export const fetchEmailsComposioTool = createTool({
         },
       });
 
+      console.log('[Composio] FETCH_EMAILS raw result:', JSON.stringify(result, null, 2));
+
+      const data = result.data as Record<string, unknown>;
+      const emails = (data?.emails || data?.messages || []) as Array<{
+        id: string;
+        threadId: string;
+        snippet: string;
+        subject?: string;
+        from?: string;
+        to?: string;
+        date?: string;
+        labelIds?: string[];
+      }>;
+
       return {
         success: true,
-        emails: result.emails || result.data?.emails || [],
+        emails,
       };
     } catch (error) {
       return {
@@ -203,9 +226,10 @@ export const sendEmailComposioTool = createTool({
         },
       });
 
+      const data = result.data as Record<string, unknown>;
       return {
         success: true,
-        messageId: result.message_id || result.id || result.data?.id,
+        messageId: (data?.message_id || data?.id || '') as string,
       };
     } catch (error) {
       return {
@@ -254,9 +278,10 @@ export const replyToThreadComposioTool = createTool({
         },
       });
 
+      const data = result.data as Record<string, unknown>;
       return {
         success: true,
-        messageId: result.message_id || result.id || result.data?.id,
+        messageId: (data?.message_id || data?.id || '') as string,
       };
     } catch (error) {
       return {
@@ -307,9 +332,10 @@ export const createDraftComposioTool = createTool({
         },
       });
 
+      const data = result.data as Record<string, unknown>;
       return {
         success: true,
-        draftId: result.draft_id || result.id || result.data?.id,
+        draftId: (data?.draft_id || data?.id || '') as string,
       };
     } catch (error) {
       return {

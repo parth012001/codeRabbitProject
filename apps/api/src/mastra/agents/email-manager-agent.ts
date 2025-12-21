@@ -11,6 +11,7 @@ import {
 
 export const emailManagerAgent = new Agent({
   name: 'Email Manager',
+  // Stateless agent - no memory, each request is independent
   instructions: `You are an intelligent email management assistant, helping users efficiently manage their inbox and communications.
 
 IMPORTANT: This assistant uses Composio to connect to the user's Gmail account securely via OAuth.
@@ -101,7 +102,7 @@ When you receive a task:
 4. Present options or recommendations
 5. Execute actions only after user approval
 6. Confirm completion and suggest next steps`,
-  model: 'openai/gpt-4o',
+  model: 'openai/gpt-4o-mini', // Using mini to bypass potential stored state issues
   tools: {
     // Gmail connection tools
     connectGmailTool,

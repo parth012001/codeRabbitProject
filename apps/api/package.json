@@ -13,6 +13,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^1.1.6",
     "@ai-sdk/openai": "^1.1.5",
+    "openai": "^4.77.0",
     "@composio/core": "^0.3.1",
     "@composio/mastra": "^0.3.1",
     "@email-assistant/config": "workspace:*",
