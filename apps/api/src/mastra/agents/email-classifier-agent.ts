@@ -31,7 +31,7 @@ When classifying:
 - Note any deadlines or time-sensitive information
 
 Always provide clear reasoning for your classifications and be consistent in your approach.`,
-  model: 'openai:gpt-4o',
+  model: 'openai/gpt-4o',
   tools: {
     fetchEmailsTool,
     classifyEmailTool,
