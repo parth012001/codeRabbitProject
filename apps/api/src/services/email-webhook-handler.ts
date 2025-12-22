@@ -4,11 +4,18 @@ import {
   GMAIL_ACTIONS,
   type GmailWebhookPayload,
 } from './composio.js';
-import { getUserDisplayName } from './user-profile.js';
+import { getUserProfile } from './user-profile.js';
 
-// Initialize OpenAI client
+// Validate required environment variable
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+if (!OPENAI_API_KEY) {
+  throw new Error('OPENAI_API_KEY environment variable is required for email draft generation');
+}
+
+// Initialize OpenAI client with validated key
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: OPENAI_API_KEY,
 });
 
 interface WebhookResult {
@@ -31,8 +38,14 @@ interface EmailData {
  * Generate a draft reply using OpenAI
  * @param email - The email data to reply to
  * @param userName - The user's display name for the signature
+ * @throws Error if OpenAI client is not available
  */
 async function generateDraftReply(email: EmailData, userName: string): Promise<string> {
+  // Guard: ensure OpenAI client is available (should always be true after module init validation)
+  if (!openai) {
+    throw new Error('[EmailHandler] OpenAI client not initialized - OPENAI_API_KEY may be missing');
+  }
+
   const prompt = `You are a helpful email assistant. Generate a professional and friendly draft reply to the following email.
 
 From: ${email.from}
@@ -116,17 +129,20 @@ function extractEmailData(payload: GmailWebhookPayload): EmailData | null {
 
 /**
  * Check if this email should be processed (not sent by us, etc.)
+ * @param email - The email data to check
+ * @param userEmail - The user's email address to check against (for self-sent detection)
  */
-function shouldProcessEmail(email: EmailData, userId: string): boolean {
+function shouldProcessEmail(email: EmailData, userEmail: string | null): boolean {
+  const fromLower = email.from.toLowerCase();
+
   // Skip emails sent from the user's own address
-  if (email.from.includes(userId)) {
+  if (userEmail && fromLower.includes(userEmail.toLowerCase())) {
     console.log('[EmailHandler] Skipping email sent by user');
     return false;
   }
 
   // Skip automated/no-reply emails
   const skipPatterns = ['noreply', 'no-reply', 'donotreply', 'mailer-daemon', 'postmaster'];
-  const fromLower = email.from.toLowerCase();
   if (skipPatterns.some((pattern) => fromLower.includes(pattern))) {
     console.log('[EmailHandler] Skipping automated email');
     return false;
@@ -173,18 +189,20 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
 
   console.log(`[EmailHandler] Processing email from: ${emailData.from}, subject: ${emailData.subject}`);
 
+  // Fetch user profile for self-sent detection and personalized signature
+  console.log('[EmailHandler] Fetching user profile...');
+  const userProfile = await getUserProfile(userId);
+  const userName = userProfile?.fullName || 'User';
+  const userEmail = userProfile?.email || null;
+  console.log(`[EmailHandler] User: ${userName}, Email: ${userEmail ? userEmail.substring(0, 3) + '***' : 'unknown'}`);
+
   // Check if we should process this email
-  if (!shouldProcessEmail(emailData, userId)) {
+  if (!shouldProcessEmail(emailData, userEmail)) {
     return {
       processed: false,
       message: 'Email filtered out (automated/self-sent)',
     };
   }
-
-  // Fetch user profile for personalized signature
-  console.log('[EmailHandler] Fetching user profile...');
-  const userName = await getUserDisplayName(userId);
-  console.log(`[EmailHandler] User name: ${userName}`);
 
   // Generate draft reply using AI
   console.log('[EmailHandler] Generating draft reply...');

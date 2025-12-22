@@ -53,6 +53,25 @@ function anonymizeUserId(userId: string): string {
 }
 
 /**
+ * Runtime type guard to validate Composio connection items
+ * Ensures the response has the expected structure before using it
+ */
+function isValidConnectionArray(items: unknown): items is ComposioConnection[] {
+  if (!Array.isArray(items)) {
+    return false;
+  }
+  return items.every(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      'id' in item &&
+      typeof item.id === 'string' &&
+      'status' in item &&
+      typeof item.status === 'string'
+  );
+}
+
+/**
  * Get Gmail tools for a specific user
  * @param userId - The user's unique identifier
  * @returns Gmail tools configured for the user
@@ -128,15 +147,27 @@ export async function checkGmailConnection(
       authConfigIds: [validAuthConfigId],
     });
 
-    const items = connections.items as ComposioConnection[] | undefined;
-    console.log(`[Composio] Connections for ${anonymizeUserId(userId)}:`, JSON.stringify(items?.map(c => ({ id: c.id, status: c.status })) || []));
+    // Validate the response structure at runtime
+    const rawItems = connections.items;
+    if (!isValidConnectionArray(rawItems)) {
+      console.error(
+        `[Composio] Unexpected response structure for ${anonymizeUserId(userId)}:`,
+        JSON.stringify(rawItems)
+      );
+      return { connected: false };
+    }
 
-    const gmailConnection = items?.find((conn) => conn.status === 'ACTIVE');
+    console.log(
+      `[Composio] Connections for ${anonymizeUserId(userId)}:`,
+      JSON.stringify(rawItems.map((c) => ({ id: c.id, status: c.status })))
+    );
+
+    const gmailConnection = rawItems.find((conn) => conn.status === 'ACTIVE');
 
     if (gmailConnection) {
       console.log(`[Composio] Found active connection: ${gmailConnection.id}`);
     } else {
-      console.log(`[Composio] No active connection found. Total connections: ${items?.length || 0}`);
+      console.log(`[Composio] No active connection found. Total connections: ${rawItems.length}`);
     }
 
     return {
@@ -216,12 +247,10 @@ export interface GmailWebhookPayload {
 /**
  * Create a Gmail trigger for a user to receive new email notifications
  * @param userId - The user's unique identifier
- * @param webhookUrl - URL where webhook events will be sent
  * @returns Trigger creation result
  */
 export async function createGmailTrigger(
-  userId: string,
-  webhookUrl: string
+  userId: string
 ): Promise<{ success: boolean; triggerId?: string; error?: string }> {
   try {
     // First check if user has Gmail connected
