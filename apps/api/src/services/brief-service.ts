@@ -2,17 +2,26 @@ import OpenAI from 'openai';
 import { getEmailsForBrief } from './processed-email-service.js';
 import type { ProcessedEmail } from '../db/index.js';
 
-// Validate required environment variable
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// Lazy-initialized OpenAI client (avoids crashing server if env var is missing)
+let openaiClient: OpenAI | null = null;
 
-if (!OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY environment variable is required for brief generation');
+/**
+ * Get OpenAI client with lazy initialization
+ * Throws only when the Brief feature is actually used, not at module load
+ */
+function getOpenAIClient(): OpenAI {
+  if (openaiClient) {
+    return openaiClient;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is required for brief generation');
+  }
+
+  openaiClient = new OpenAI({ apiKey });
+  return openaiClient;
 }
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-});
 
 /**
  * Brief statistics
@@ -95,6 +104,7 @@ Provide a concise 2-3 sentence executive summary like a chief of staff would giv
 Be direct and informative. Do not use bullet points. Write in complete sentences.`;
 
   try {
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
