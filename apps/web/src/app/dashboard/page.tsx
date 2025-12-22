@@ -46,8 +46,9 @@ function DashboardContent() {
   const [workingHoursEnd, setWorkingHoursEnd] = useState(17);
   const [calendarEnabled, setCalendarEnabled] = useState(false);
 
-  // Track OAuth success handling
-  const oauthHandledRef = useRef(false);
+  // Track OAuth success handling independently per service
+  const gmailOauthHandledRef = useRef(false);
+  const calendarOauthHandledRef = useRef(false);
 
   // Handle OAuth callback parameters
   useEffect(() => {
@@ -56,17 +57,16 @@ function DashboardContent() {
     const calendarConnectedParam = searchParams.get("calendar_connected");
     const calendarErrorParam = searchParams.get("calendar_error");
 
-    if (!oauthHandledRef.current) {
-      if (gmailConnectedParam === "true") {
-        oauthHandledRef.current = true;
-        setGmailConnected(true);
-        setGmailError(null);
-      }
-      if (calendarConnectedParam === "true") {
-        oauthHandledRef.current = true;
-        setCalendarConnected(true);
-        setCalendarError(null);
-      }
+    if (!gmailOauthHandledRef.current && gmailConnectedParam === "true") {
+      gmailOauthHandledRef.current = true;
+      setGmailConnected(true);
+      setGmailError(null);
+    }
+
+    if (!calendarOauthHandledRef.current && calendarConnectedParam === "true") {
+      calendarOauthHandledRef.current = true;
+      setCalendarConnected(true);
+      setCalendarError(null);
     }
 
     if (gmailErrorParam) {

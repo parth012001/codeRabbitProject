@@ -453,10 +453,15 @@ export async function getAvailabilitySummary(
       const dayOfWeek = checkDate.getDay();
       if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-      const { slots } = await getAvailableSlots(userId, checkDate);
+      // Use same defaults as getAvailableSlots
+      const slotDurationMinutes = 30;
+      const workingHoursStart = 9;
+      const workingHoursEnd = 17;
 
-      // Calculate total possible slots (8 hours * 2 slots per hour = 16 slots for 30-min slots)
-      const totalSlots = 16;
+      const { slots } = await getAvailableSlots(userId, checkDate, slotDurationMinutes, workingHoursStart, workingHoursEnd);
+
+      // Calculate total possible slots from working hours and slot duration
+      const totalSlots = Math.floor(((workingHoursEnd - workingHoursStart) * 60) / slotDurationMinutes);
 
       summary.push({
         date: checkDate.toISOString().split('T')[0],

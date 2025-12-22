@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { UserSettingsResponse, ApiErrorResponse } from '@email-assistant/types';
+import { withTimeout } from '@/lib/utils/timeout';
 
 function getMastraBaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_MASTRA_API_URL;
@@ -12,24 +13,6 @@ function getMastraBaseUrl(): string {
 }
 
 const TIMEOUT_MS = 10000;
-
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`Request timed out after ${ms}ms`));
-    }, ms);
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
 
 export async function GET() {
   try {

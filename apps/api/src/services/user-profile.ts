@@ -114,7 +114,8 @@ export async function getUserSettings(userId: string): Promise<UserSettingsData 
 }
 
 /**
- * Create or update user settings
+ * Create or update user settings atomically
+ * Uses INSERT ... ON CONFLICT DO UPDATE to avoid race conditions
  * @param userId - Clerk user ID
  * @param settings - Partial settings to update
  * @returns Updated settings
@@ -129,21 +130,10 @@ export async function upsertUserSettings(
   try {
     const now = new Date();
 
-    // Check if settings exist
-    const existing = await getUserSettings(userId);
-
-    if (existing) {
-      // Update existing settings
-      await db
-        .update(userSettings)
-        .set({
-          ...settings,
-          updatedAt: now,
-        })
-        .where(eq(userSettings.userId, userId));
-    } else {
-      // Insert new settings
-      await db.insert(userSettings).values({
+    // Atomic upsert: insert new row or update existing on conflict
+    await db
+      .insert(userSettings)
+      .values({
         userId,
         calendlyUrl: settings.calendlyUrl ?? null,
         workingHoursStart: settings.workingHoursStart ?? 9,
@@ -152,8 +142,19 @@ export async function upsertUserSettings(
         calendarEnabled: settings.calendarEnabled ?? false,
         createdAt: now,
         updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: userSettings.userId,
+        set: {
+          // Only update fields that were explicitly provided
+          ...(settings.calendlyUrl !== undefined && { calendlyUrl: settings.calendlyUrl }),
+          ...(settings.workingHoursStart !== undefined && { workingHoursStart: settings.workingHoursStart }),
+          ...(settings.workingHoursEnd !== undefined && { workingHoursEnd: settings.workingHoursEnd }),
+          ...(settings.timezone !== undefined && { timezone: settings.timezone }),
+          ...(settings.calendarEnabled !== undefined && { calendarEnabled: settings.calendarEnabled }),
+          updatedAt: now,
+        },
       });
-    }
 
     // Return the updated settings
     const updated = await getUserSettings(userId);

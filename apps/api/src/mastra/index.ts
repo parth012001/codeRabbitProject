@@ -525,6 +525,16 @@ export const mastra = new Mastra({
               }
             }
 
+            // Validate that start time is before end time when both are provided
+            if (body.workingHoursStart !== undefined && body.workingHoursEnd !== undefined) {
+              if (body.workingHoursStart >= body.workingHoursEnd) {
+                return c.json(
+                  { success: false, error: 'workingHoursStart must be before workingHoursEnd' },
+                  400
+                );
+              }
+            }
+
             console.log(`[Settings] Updating settings for user: ${auth.userId}`);
             const settings = await upsertUserSettings(auth.userId, body);
 

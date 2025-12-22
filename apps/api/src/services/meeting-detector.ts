@@ -181,24 +181,129 @@ function getDefaultClassification(): MeetingClassification {
 }
 
 /**
+ * Normalize a time string to HH:MM format
+ * Handles various malformed inputs from LLM
+ */
+function normalizeTimeString(time: string): string | null {
+  const trimmed = time.trim();
+
+  // Try to match HH:MM or H:MM patterns
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+
+  // Validate ranges
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+
+  // Zero-pad hour
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Normalize a date string to YYYY-MM-DD format
+ * Validates the date is valid
+ */
+function normalizeDateString(date: string): string | null {
+  const trimmed = date.trim();
+
+  // Match YYYY-MM-DD pattern
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  // Basic validation
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  // Validate the date is real (e.g., not Feb 30)
+  const testDate = new Date(year, month - 1, day);
+  if (
+    testDate.getFullYear() !== year ||
+    testDate.getMonth() !== month - 1 ||
+    testDate.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/**
  * Convert a proposed time to a Date object for calendar checks
- * Handles timezone considerations
+ * Handles timezone considerations and validates input
  *
  * @param proposedTime - The proposed time from classification
+ * @param defaultDurationMinutes - Default meeting duration if end time is invalid/missing
  * @returns Object with start and end Date objects
+ * @throws Error if the start date/time is invalid
  */
 export function proposedTimeToDate(
   proposedTime: ProposedTime,
   defaultDurationMinutes: number = 30
 ): { start: Date; end: Date } {
-  // Combine date and time
-  const startDateTime = new Date(`${proposedTime.date}T${proposedTime.startTime}:00`);
+  // Normalize and validate date
+  const normalizedDate = normalizeDateString(proposedTime.date);
+  if (!normalizedDate) {
+    throw new Error(
+      `Invalid date format: "${proposedTime.date}". Expected YYYY-MM-DD format.`
+    );
+  }
 
+  // Normalize and validate start time
+  const normalizedStartTime = normalizeTimeString(proposedTime.startTime);
+  if (!normalizedStartTime) {
+    throw new Error(
+      `Invalid start time format: "${proposedTime.startTime}". Expected HH:MM format.`
+    );
+  }
+
+  // Construct start date in ISO format
+  const startDateTime = new Date(`${normalizedDate}T${normalizedStartTime}:00`);
+
+  // Validate start date is valid
+  if (isNaN(startDateTime.getTime())) {
+    throw new Error(
+      `Failed to parse start date/time: date="${proposedTime.date}", startTime="${proposedTime.startTime}"`
+    );
+  }
+
+  // Handle end time
   let endDateTime: Date;
   if (proposedTime.endTime) {
-    endDateTime = new Date(`${proposedTime.date}T${proposedTime.endTime}:00`);
+    const normalizedEndTime = normalizeTimeString(proposedTime.endTime);
+
+    if (normalizedEndTime) {
+      const parsedEndDateTime = new Date(`${normalizedDate}T${normalizedEndTime}:00`);
+
+      // If end time is valid and after start, use it; otherwise fall back to default duration
+      if (!isNaN(parsedEndDateTime.getTime()) && parsedEndDateTime > startDateTime) {
+        endDateTime = parsedEndDateTime;
+      } else {
+        console.warn(
+          `[MeetingDetector] Invalid end time "${proposedTime.endTime}", using default duration`
+        );
+        endDateTime = new Date(startDateTime.getTime() + defaultDurationMinutes * 60 * 1000);
+      }
+    } else {
+      console.warn(
+        `[MeetingDetector] Malformed end time "${proposedTime.endTime}", using default duration`
+      );
+      endDateTime = new Date(startDateTime.getTime() + defaultDurationMinutes * 60 * 1000);
+    }
   } else {
-    // Default duration if no end time specified
+    // No end time specified, use default duration
     endDateTime = new Date(startDateTime.getTime() + defaultDurationMinutes * 60 * 1000);
   }
 

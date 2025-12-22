@@ -2,36 +2,10 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { CalendarConnectResponse, ApiErrorResponse } from '@email-assistant/types';
 import { authorizeCalendar } from '@/lib/composio';
-
-function getBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL;
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return 'http://localhost:3001';
-}
+import { getBaseUrl } from '@/lib/utils/url';
+import { withTimeout } from '@/lib/utils/timeout';
 
 const TIMEOUT_MS = 15000;
-
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`Request timed out after ${ms}ms`));
-    }, ms);
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
 
 export async function POST() {
   try {
