@@ -1,32 +1,92 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+'use client';
 
-export default async function Home() {
-  const { userId } = await auth();
+import React from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import type { AnimationCycle } from '@/config/animations';
+import {
+  Header,
+  HeroSection,
+  HowItWorksSection,
+  FeaturesSection,
+  SecuritySection,
+  FinalCTASection,
+  Footer,
+} from '@/components/landing';
 
-  if (userId) {
-    redirect("/dashboard");
+export default function Home() {
+  const router = useRouter();
+  const { isSignedIn, isLoaded } = useAuth();
+  const [isScrolled, setIsScrolled] = React.useState(false);
+  const [animationCycle, setAnimationCycle] = React.useState<AnimationCycle>('meeting');
+
+  // Redirect authenticated users to dashboard
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  // Handle scroll for header background
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Alternate between meeting and regular email cycles every 15 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimationCycle((prev) => (prev === 'meeting' ? 'regular' : 'meeting'));
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Show loading state while checking auth
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Don't render landing page if user is signed in (they'll be redirected)
+  if (isSignedIn) {
+    return null;
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] p-8">
-      <div className="max-w-2xl text-center">
-        <h2 className="text-4xl font-bold mb-4">
-          Your Intelligent Email Assistant
-        </h2>
-        <p className="text-lg text-gray-600 mb-8">
-          Powered by Mastra AI. Manage your inbox efficiently with AI-powered
-          email classification, smart replies, and automated workflows.
-        </p>
-        <div className="flex gap-4 justify-center">
-          <a
-            href="/sign-in"
-            className="px-6 py-3 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800"
-          >
-            Get Started
-          </a>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 scroll-smooth">
+      {/* Header */}
+      <Header isScrolled={isScrolled} onNavigate={scrollToSection} />
+
+      {/* Hero Section */}
+      <HeroSection animationCycle={animationCycle} />
+
+      {/* How It Works Section */}
+      <HowItWorksSection />
+
+      {/* Key Features Section */}
+      <FeaturesSection />
+
+      {/* Security Trust Section */}
+      <SecuritySection />
+
+      {/* Final CTA Section */}
+      <FinalCTASection />
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
