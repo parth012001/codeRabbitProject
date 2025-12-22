@@ -32,6 +32,7 @@ import {
 import { checkAvailability, getAvailableSlots } from '../services/calendar-service.js';
 import { detectMeetingRequest } from '../services/meeting-detector.js';
 import { getUserSettings, upsertUserSettings } from '../services/user-profile.js';
+import { generateBrief } from '../services/brief-service.js';
 
 // Clerk secret key for JWT verification
 const clerkSecretKey = process.env.CLERK_SECRET_KEY;
@@ -548,6 +549,40 @@ export const mastra = new Mastra({
               {
                 success: false,
                 error: error instanceof Error ? error.message : 'Failed to update settings',
+              },
+              500
+            );
+          }
+        },
+      }),
+
+      // ========================================================================
+      // Brief Endpoint
+      // ========================================================================
+
+      // Generate email brief for the user
+      registerApiRoute('/brief', {
+        method: 'GET',
+        handler: async (c) => {
+          try {
+            const auth = await verifyAuth(c);
+            if (!auth) {
+              return c.json({ success: false, error: 'Authentication required' }, 401);
+            }
+
+            console.log(`[Brief] Generating brief for user: ${auth.userId.substring(0, 8)}...`);
+            const brief = await generateBrief(auth.userId);
+
+            return c.json({
+              success: true,
+              brief,
+            });
+          } catch (error) {
+            console.error('[Brief] Error generating brief:', error);
+            return c.json(
+              {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to generate brief',
               },
               500
             );
