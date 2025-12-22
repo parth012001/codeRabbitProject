@@ -40,11 +40,3 @@ export async function generateAgentResponse(
   );
 }
 
-export async function sendMessageToEmailManager(
-  userId: string,
-  message: string
-): Promise<AgentGenerateResponse> {
-  return generateAgentResponse('emailManagerAgent', userId, [
-    { role: 'user', content: message },
-  ]);
-}

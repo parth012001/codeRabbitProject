@@ -19,8 +19,4 @@ export {
 export { getUserSettings, updateUserSettings } from './settings';
 
 // Agent API
-export {
-  generateAgentResponse,
-  sendMessageToEmailManager,
-  type AgentName,
-} from './agent';
+export { generateAgentResponse, type AgentName } from './agent';

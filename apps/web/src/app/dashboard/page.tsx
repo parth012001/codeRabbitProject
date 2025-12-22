@@ -12,17 +12,15 @@ import {
   redirectToCalendarAuth,
   getUserSettings,
   updateUserSettings,
-  sendMessageToEmailManager,
   ApiError,
 } from "@/lib/api";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import type { UserSettings } from "@email-assistant/types";
 
 function DashboardContent() {
   const { user, isLoaded } = useUser();
   const searchParams = useSearchParams();
-  const [message, setMessage] = useState("");
-  const [response, setResponse] = useState("");
-  const [loading, setLoading] = useState(false);
 
   // Gmail state
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
@@ -172,251 +170,241 @@ function DashboardContent() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!message.trim() || !user?.id) return;
-
-    setLoading(true);
-    try {
-      const data = await sendMessageToEmailManager(user.id, message);
-      setResponse(data.text || JSON.stringify(data, null, 2));
-    } catch (error) {
-      const errorMessage = error instanceof ApiError
-        ? `Error: ${error.message}`
-        : "Error: Failed to connect to Mastra API";
-      setResponse(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-[80vh]">
-        <p>Loading...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          <p className="text-slate-500 font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">
-            Welcome, {user?.firstName || "User"}!
-          </h2>
-          {process.env.NODE_ENV !== "production" && (
-            <p className="text-gray-600 text-sm">
-              User ID: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{user?.id}</code>
-            </p>
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <div className="max-w-4xl mx-auto px-6 py-12">
+        {/* Welcome Header */}
+        <div className="mb-10 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">
+              Welcome, {user?.firstName || "User"}!
+            </h2>
+            {process.env.NODE_ENV !== "production" && (
+              <p className="text-slate-500 text-sm flex items-center gap-2">
+                User ID:{" "}
+                <code className="bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 px-3 py-1 rounded-full text-xs font-medium text-slate-600">
+                  {user?.id}
+                </code>
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </Button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowSettings(!showSettings)}
-          className="px-4 py-2 border rounded-md hover:bg-gray-50"
-        >
-          Settings
-        </button>
-      </div>
 
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="border rounded-lg p-6 mb-6 bg-gray-50">
-          <h3 className="text-lg font-semibold mb-4">Settings</h3>
-          {settingsLoading ? (
-            <p className="text-gray-500">Loading settings...</p>
-          ) : (
-            <div className="space-y-4">
+        {/* Settings Panel */}
+        {showSettings && (
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-slate-900 mb-6">Settings</h3>
+              {settingsLoading ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                  <p className="text-slate-500">Loading settings...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Calendly URL</label>
+                    <input
+                      type="url"
+                      value={calendlyUrl}
+                      onChange={(e) => setCalendlyUrl(e.target.value)}
+                      placeholder="https://calendly.com/your-link"
+                      className="w-full p-3 border border-slate-200 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all duration-300"
+                    />
+                    <p className="text-xs text-slate-500 mt-2">
+                      Used as fallback when you are not available
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Work Hours Start</label>
+                      <select
+                        value={workingHoursStart}
+                        onChange={(e) => setWorkingHoursStart(Number(e.target.value))}
+                        className="w-full p-3 border border-slate-200 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all duration-300"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i}>
+                            {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Work Hours End</label>
+                      <select
+                        value={workingHoursEnd}
+                        onChange={(e) => setWorkingHoursEnd(Number(e.target.value))}
+                        className="w-full p-3 border border-slate-200 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all duration-300"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i}>
+                            {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="calendarEnabled"
+                      checked={calendarEnabled}
+                      onChange={(e) => setCalendarEnabled(e.target.checked)}
+                      className="w-5 h-5 rounded border-blue-200/50 text-blue-600 focus:ring-blue-500/50"
+                    />
+                    <label htmlFor="calendarEnabled" className="text-sm text-slate-600">
+                      Enable smart meeting detection (requires Calendar connection)
+                    </label>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      variant="primary"
+                      onClick={saveSettings}
+                      loading={settingsSaving}
+                    >
+                      {settingsSaving ? "Saving..." : "Save Settings"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowSettings(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Gmail Connection */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Gmail</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {gmailConnected === null
+                      ? "Checking connection status..."
+                      : gmailConnected
+                      ? "Your Gmail is connected"
+                      : "Connect to manage emails"}
+                  </p>
+                </div>
+              </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Calendly URL</label>
-                <input
-                  type="url"
-                  value={calendlyUrl}
-                  onChange={(e) => setCalendlyUrl(e.target.value)}
-                  placeholder="https://calendly.com/your-link"
-                  className="w-full p-2 border rounded-md"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Used as fallback when you are not available
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Work Hours Start</label>
-                  <select
-                    value={workingHoursStart}
-                    onChange={(e) => setWorkingHoursStart(Number(e.target.value))}
-                    className="w-full p-2 border rounded-md"
+                {gmailConnected === null ? (
+                  <span className="px-4 py-2 bg-slate-100 text-slate-500 rounded-full text-sm font-medium">
+                    Checking...
+                  </span>
+                ) : gmailConnected ? (
+                  <span className="px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 rounded-full text-sm font-medium">
+                    Connected
+                  </span>
+                ) : (
+                  <Button
+                    variant="primary"
+                    onClick={connectGmail}
+                    loading={gmailConnecting}
                   >
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Work Hours End</label>
-                  <select
-                    value={workingHoursEnd}
-                    onChange={(e) => setWorkingHoursEnd(Number(e.target.value))}
-                    className="w-full p-2 border rounded-md"
-                  >
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="calendarEnabled"
-                  checked={calendarEnabled}
-                  onChange={(e) => setCalendarEnabled(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="calendarEnabled" className="text-sm">
-                  Enable smart meeting detection (requires Calendar connection)
-                </label>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={saveSettings}
-                  disabled={settingsSaving}
-                  className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:bg-gray-400"
-                >
-                  {settingsSaving ? "Saving..." : "Save Settings"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(false)}
-                  className="px-4 py-2 border rounded-md hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
+                    {gmailConnecting ? "Connecting..." : "Connect"}
+                  </Button>
+                )}
               </div>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Gmail Connection */}
-      <div className="border rounded-lg p-6 mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">Gmail</h3>
-            <p className="text-gray-600 text-sm mt-1">
-              {gmailConnected === null
-                ? "Checking..."
-                : gmailConnected
-                ? "Connected"
-                : "Connect to manage emails"}
-            </p>
-          </div>
-          <div>
-            {gmailConnected === null ? (
-              <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">Checking...</span>
-            ) : gmailConnected ? (
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Connected</span>
-            ) : (
-              <button
-                type="button"
-                onClick={connectGmail}
-                disabled={gmailConnecting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400"
-              >
-                {gmailConnecting ? "Connecting..." : "Connect"}
-              </button>
+            {gmailError && (
+              <div className="mt-4 p-4 bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-xl text-red-700 text-sm flex justify-between items-center">
+                <span>{gmailError}</span>
+                <Button variant="ghost" size="sm" onClick={() => setGmailError(null)}>
+                  Dismiss
+                </Button>
+              </div>
             )}
-          </div>
-        </div>
-        {gmailError && (
-          <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm flex justify-between">
-            <span>{gmailError}</span>
-            <button type="button" onClick={() => setGmailError(null)} className="text-red-500 hover:text-red-700">
-              Dismiss
-            </button>
-          </div>
-        )}
-      </div>
+          </CardContent>
+        </Card>
 
-      {/* Calendar Connection */}
-      <div className="border rounded-lg p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">Google Calendar</h3>
-            <p className="text-gray-600 text-sm mt-1">
-              {calendarConnected === null
-                ? "Checking..."
-                : calendarConnected
-                ? "Connected"
-                : "Connect for smart meeting replies"}
-            </p>
-          </div>
-          <div>
-            {calendarConnected === null ? (
-              <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">Checking...</span>
-            ) : calendarConnected ? (
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Connected</span>
-            ) : (
-              <button
-                type="button"
-                onClick={connectCalendar}
-                disabled={calendarConnecting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400"
-              >
-                {calendarConnecting ? "Connecting..." : "Connect"}
-              </button>
+        {/* Calendar Connection */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Google Calendar</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {calendarConnected === null
+                      ? "Checking connection status..."
+                      : calendarConnected
+                      ? "Your calendar is connected"
+                      : "Connect for smart meeting replies"}
+                  </p>
+                </div>
+              </div>
+              <div>
+                {calendarConnected === null ? (
+                  <span className="px-4 py-2 bg-slate-100 text-slate-500 rounded-full text-sm font-medium">
+                    Checking...
+                  </span>
+                ) : calendarConnected ? (
+                  <span className="px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 rounded-full text-sm font-medium">
+                    Connected
+                  </span>
+                ) : (
+                  <Button
+                    variant="primary"
+                    onClick={connectCalendar}
+                    loading={calendarConnecting}
+                  >
+                    {calendarConnecting ? "Connecting..." : "Connect"}
+                  </Button>
+                )}
+              </div>
+            </div>
+            {calendarError && (
+              <div className="mt-4 p-4 bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-xl text-red-700 text-sm flex justify-between items-center">
+                <span>{calendarError}</span>
+                <Button variant="ghost" size="sm" onClick={() => setCalendarError(null)}>
+                  Dismiss
+                </Button>
+              </div>
             )}
-          </div>
-        </div>
-        {calendarError && (
-          <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm flex justify-between">
-            <span>{calendarError}</span>
-            <button type="button" onClick={() => setCalendarError(null)} className="text-red-500 hover:text-red-700">
-              Dismiss
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Chat Interface */}
-      <div className="border rounded-lg p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-4">Chat with Email Assistant</h3>
-        <div className="space-y-4">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={
-              gmailConnected
-                ? "Ask about your emails..."
-                : "Connect Gmail first"
-            }
-            disabled={!gmailConnected}
-            className="w-full p-3 border rounded-md h-24 resize-none disabled:bg-gray-50 disabled:text-gray-400"
-          />
-          <button
-            type="button"
-            onClick={sendMessage}
-            disabled={loading || !message.trim() || !gmailConnected}
-            className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:bg-gray-400"
-          >
-            {loading ? "Sending..." : "Send"}
-          </button>
-        </div>
-        {response && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-md">
-            <h4 className="font-medium mb-2">Response:</h4>
-            <p className="whitespace-pre-wrap text-gray-700">{response}</p>
-          </div>
-        )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -426,8 +414,11 @@ export default function Dashboard() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <p>Loading...</p>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-slate-500 font-medium">Loading...</p>
+          </div>
         </div>
       }
     >
