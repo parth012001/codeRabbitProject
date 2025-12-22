@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type { AnimationCycle } from '@/config/animations';
 import {
   Header,
@@ -15,6 +15,7 @@ import {
 } from '@/components/landing';
 
 export default function Home() {
+  const router = useRouter();
   const { isSignedIn, isLoaded } = useAuth();
   const [isScrolled, setIsScrolled] = React.useState(false);
   const [animationCycle, setAnimationCycle] = React.useState<AnimationCycle>('meeting');
@@ -22,9 +23,9 @@ export default function Home() {
   // Redirect authenticated users to dashboard
   React.useEffect(() => {
     if (isLoaded && isSignedIn) {
-      redirect('/dashboard');
+      router.replace('/dashboard');
     }
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, router]);
 
   // Handle scroll for header background
   React.useEffect(() => {
