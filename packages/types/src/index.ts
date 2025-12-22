@@ -145,3 +145,75 @@ export interface PaginationParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
+// ===========================================
+// Gmail Connection Types
+// ===========================================
+
+export interface GmailConnectionStatus {
+  connected: boolean;
+  connectionId?: string;
+}
+
+export interface GmailConnectResponse {
+  redirectUrl: string;
+  connectionId: string;
+}
+
+export interface GmailCallbackParams {
+  gmail_connected?: string;
+  gmail_error?: string;
+}
+
+// ===========================================
+// Agent API Types
+// ===========================================
+
+export interface AgentMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface AgentGenerateRequest {
+  userId: string;
+  messages: AgentMessage[];
+}
+
+export interface AgentGenerateResponse {
+  text: string;
+  toolCalls?: AgentToolCall[];
+}
+
+export interface AgentToolCall {
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: unknown;
+}
+
+// ===========================================
+// Workflow API Types
+// ===========================================
+
+export interface InboxTriageResult {
+  summary: {
+    totalEmails: number;
+    unreadCount: number;
+    priorityCounts: Record<EmailPriority, number>;
+  };
+  emails: Array<{
+    email: Email;
+    classification: EmailClassification;
+    suggestedAction: EmailActionType;
+  }>;
+  recommendations: string[];
+}
+
+// ===========================================
+// Error Types
+// ===========================================
+
+export interface ApiErrorResponse {
+  error: string;
+  code?: string;
+  details?: Record<string, unknown>;
+}
