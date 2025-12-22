@@ -217,3 +217,36 @@ export interface ApiErrorResponse {
   code?: string;
   details?: Record<string, unknown>;
 }
+
+// ===========================================
+// Calendar Connection Types
+// ===========================================
+
+export interface CalendarConnectionStatus {
+  connected: boolean;
+  connectionId?: string;
+}
+
+export interface CalendarConnectResponse {
+  redirectUrl?: string;
+  connectionId: string;
+  alreadyConnected?: boolean;
+}
+
+// ===========================================
+// User Settings Types
+// ===========================================
+
+export interface UserSettings {
+  calendlyUrl: string | null;
+  workingHoursStart: number;
+  workingHoursEnd: number;
+  timezone: string;
+  calendarEnabled: boolean;
+}
+
+export interface UserSettingsResponse {
+  success: boolean;
+  settings: UserSettings;
+  error?: string;
+}

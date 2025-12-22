@@ -8,6 +8,16 @@ export {
   redirectToGmailAuth,
 } from './gmail';
 
+// Calendar API
+export {
+  checkCalendarConnection,
+  initiateCalendarConnection,
+  redirectToCalendarAuth,
+} from './calendar';
+
+// Settings API
+export { getUserSettings, updateUserSettings } from './settings';
+
 // Agent API
 export {
   generateAgentResponse,
