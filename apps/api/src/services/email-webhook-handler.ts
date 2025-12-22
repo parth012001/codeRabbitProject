@@ -2,9 +2,18 @@ import OpenAI from 'openai';
 import {
   composio,
   GMAIL_ACTIONS,
+  checkCalendarConnection,
   type GmailWebhookPayload,
 } from './composio.js';
-import { getUserProfile } from './user-profile.js';
+import { getUserProfile, getUserSettings, getCalendlyUrl } from './user-profile.js';
+import {
+  detectMeetingRequest,
+  shouldCheckCalendar,
+  proposedTimeToDate,
+  formatProposedTimes,
+  type MeetingClassification,
+} from './meeting-detector.js';
+import { checkAvailability, getAvailableSlots } from './calendar-service.js';
 
 // Validate required environment variable
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -83,6 +92,112 @@ Draft reply:`;
   } catch (error) {
     console.error('[EmailHandler] Failed to generate draft:', error);
     return 'Thank you for your email. I will get back to you shortly.';
+  }
+}
+
+/**
+ * Generate a meeting-specific draft reply
+ * @param email - The email data
+ * @param userName - The user's display name
+ * @param classification - Meeting classification result
+ * @param isAvailable - Whether the user is available at the proposed time
+ * @param calendlyUrl - User's Calendly URL for fallback
+ * @param availableSlots - Alternative available time slots if not available
+ */
+async function generateMeetingDraftReply(
+  email: EmailData,
+  userName: string,
+  classification: MeetingClassification,
+  isAvailable: boolean,
+  calendlyUrl: string | null,
+  availableSlots: string[]
+): Promise<string> {
+  const proposedTimesText = formatProposedTimes(classification.proposedTimes);
+
+  let contextInfo = '';
+
+  if (isAvailable && classification.proposedTimes.length > 0) {
+    contextInfo = `
+AVAILABILITY STATUS: The user IS AVAILABLE at the proposed time(s).
+Proposed time(s): ${proposedTimesText}
+
+Generate a reply that:
+- Confirms availability for the proposed meeting time
+- Expresses enthusiasm about meeting
+- Asks for any additional details needed (location, video call link, agenda, etc.)`;
+  } else if (!isAvailable && calendlyUrl) {
+    contextInfo = `
+AVAILABILITY STATUS: The user is NOT AVAILABLE at the proposed time(s).
+Proposed time(s): ${proposedTimesText}
+User's Calendly link: ${calendlyUrl}
+
+Generate a reply that:
+- Politely declines the specific proposed time(s) due to a scheduling conflict
+- Provides the Calendly link for them to find a suitable time
+- Expresses enthusiasm about finding a time that works`;
+  } else if (!isAvailable && availableSlots.length > 0) {
+    contextInfo = `
+AVAILABILITY STATUS: The user is NOT AVAILABLE at the proposed time(s).
+Proposed time(s): ${proposedTimesText}
+Alternative available slots: ${availableSlots.join(', ')}
+
+Generate a reply that:
+- Politely declines the specific proposed time(s) due to a scheduling conflict
+- Suggests the alternative available time slots
+- Asks them to confirm which time works best`;
+  } else {
+    contextInfo = `
+AVAILABILITY STATUS: Unable to check calendar availability.
+Proposed time(s): ${proposedTimesText}
+
+Generate a reply that:
+- Acknowledges the meeting request
+- Says you'll check your calendar and get back to them shortly
+- Asks for any additional details about the meeting purpose`;
+  }
+
+  const prompt = `You are a helpful email assistant. Generate a professional and friendly draft reply to this MEETING REQUEST email.
+
+From: ${email.from}
+Subject: ${email.subject}
+Content: ${email.body || email.snippet}
+
+Meeting Details Detected:
+- Meeting Type: ${classification.meetingType}
+- Purpose: ${classification.meetingPurpose || 'Not specified'}
+- Urgent: ${classification.isUrgent ? 'Yes' : 'No'}
+${contextInfo}
+
+Requirements:
+- Be polite and professional
+- Keep the response concise
+- Don't include a subject line, just the body
+- Sign off with "Best regards," followed by: ${userName}
+- Do NOT use placeholders like [Your Name], [Your Position], etc.
+
+Draft reply:`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful email assistant that generates professional meeting response drafts.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    return completion.choices[0]?.message?.content || 'Thank you for the meeting request. I will check my availability and get back to you shortly.';
+  } catch (error) {
+    console.error('[EmailHandler] Failed to generate meeting draft:', error);
+    return 'Thank you for the meeting request. I will check my availability and get back to you shortly.';
   }
 }
 
@@ -204,9 +319,93 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     };
   }
 
-  // Generate draft reply using AI
-  console.log('[EmailHandler] Generating draft reply...');
-  const draftBody = await generateDraftReply(emailData, userName);
+  // Get user settings for calendar features
+  const userSettings = await getUserSettings(userId);
+  const calendarEnabled = userSettings?.calendarEnabled ?? false;
+
+  // Detect if this is a meeting request
+  console.log('[EmailHandler] Checking if email is a meeting request...');
+  const meetingClassification = await detectMeetingRequest({
+    from: emailData.from,
+    subject: emailData.subject,
+    body: emailData.body || emailData.snippet,
+  });
+
+  console.log(
+    `[EmailHandler] Meeting detection: isMeeting=${meetingClassification.isMeetingRequest}, confidence=${meetingClassification.confidence}`
+  );
+
+  let draftBody: string;
+
+  // Handle meeting request emails with calendar integration
+  if (shouldCheckCalendar(meetingClassification) && calendarEnabled) {
+    console.log('[EmailHandler] Processing as meeting request with calendar check...');
+
+    // Check if calendar is connected
+    const calendarConnection = await checkCalendarConnection(userId);
+
+    if (calendarConnection.connected && meetingClassification.proposedTimes.length > 0) {
+      // Check availability for the first proposed time
+      const proposedTime = meetingClassification.proposedTimes[0];
+      const { start, end } = proposedTimeToDate(
+        proposedTime,
+        meetingClassification.durationMinutes ?? 30
+      );
+
+      console.log(`[EmailHandler] Checking availability: ${start.toISOString()} to ${end.toISOString()}`);
+
+      const availability = await checkAvailability(userId, start.toISOString(), end.toISOString());
+
+      // Get calendly URL for fallback
+      const calendlyUrl = await getCalendlyUrl(userId);
+
+      // Get alternative slots if not available
+      let alternativeSlots: string[] = [];
+      if (!availability.isAvailable) {
+        const slotsResult = await getAvailableSlots(userId, start);
+        alternativeSlots = slotsResult.slots.slice(0, 3).map((slot) => {
+          const slotDate = new Date(slot.start);
+          return slotDate.toLocaleString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+        });
+      }
+
+      console.log(`[EmailHandler] Availability: ${availability.isAvailable ? 'AVAILABLE' : 'BUSY'}`);
+
+      // Generate meeting-specific draft
+      draftBody = await generateMeetingDraftReply(
+        emailData,
+        userName,
+        meetingClassification,
+        availability.isAvailable,
+        calendlyUrl,
+        alternativeSlots
+      );
+    } else {
+      // Calendar not connected or no proposed times - generate meeting draft without availability
+      console.log('[EmailHandler] Calendar not connected or no proposed times, generating generic meeting response');
+      const calendlyUrl = await getCalendlyUrl(userId);
+
+      draftBody = await generateMeetingDraftReply(
+        emailData,
+        userName,
+        meetingClassification,
+        false, // Can't confirm availability
+        calendlyUrl,
+        []
+      );
+    }
+  } else {
+    // Regular email - generate standard draft reply
+    console.log('[EmailHandler] Generating standard draft reply...');
+    draftBody = await generateDraftReply(emailData, userName);
+  }
+
   console.log('[EmailHandler] Generated draft body:', draftBody.substring(0, 200) + '...');
 
   // Extract just the email address from "Name <email>" format
