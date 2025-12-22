@@ -28,6 +28,11 @@ import { createGmailTrigger, listUserTriggers } from '../services/composio.js';
 // Clerk secret key for JWT verification
 const clerkSecretKey = process.env.CLERK_SECRET_KEY;
 
+// Fail-fast in production if CLERK_SECRET_KEY is missing
+if (!clerkSecretKey && process.env.NODE_ENV === 'production') {
+  throw new Error('CLERK_SECRET_KEY environment variable is required in production');
+}
+
 // Request context type (from Hono via Mastra)
 interface RequestContext {
   req: {
