@@ -14,6 +14,11 @@ import {
   type MeetingClassification,
 } from './meeting-detector.js';
 import { checkAvailability, getAvailableSlots } from './calendar-service.js';
+import {
+  isEmailAlreadyProcessed,
+  saveProcessedEmail,
+  type AvailabilityStatus,
+} from './processed-email-service.js';
 
 // Validate required environment variable
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -304,6 +309,16 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
 
   console.log(`[EmailHandler] Processing email from: ${emailData.from}, subject: ${emailData.subject}`);
 
+  // Check for duplicate processing (fail-open: if check fails, we still process)
+  const alreadyProcessed = await isEmailAlreadyProcessed(userId, emailData.messageId);
+  if (alreadyProcessed) {
+    console.log(`[EmailHandler] Email ${emailData.messageId} already processed, skipping`);
+    return {
+      processed: false,
+      message: 'Email already processed',
+    };
+  }
+
   // Fetch user profile for self-sent detection and personalized signature
   console.log('[EmailHandler] Fetching user profile...');
   const userProfile = await getUserProfile(userId);
@@ -336,61 +351,99 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
   );
 
   let draftBody: string;
+  // Track availability status for persistence
+  let availabilityStatus: AvailabilityStatus = 'unknown';
 
   // Handle meeting request emails with calendar integration
   if (shouldCheckCalendar(meetingClassification) && calendarEnabled) {
     console.log('[EmailHandler] Processing as meeting request with calendar check...');
 
-    // Check if calendar is connected
-    const calendarConnection = await checkCalendarConnection(userId);
+    // Track whether we successfully checked calendar availability
+    let calendarCheckSucceeded = false;
+    let isAvailable = false;
+    let alternativeSlots: string[] = [];
 
-    if (calendarConnection.connected && meetingClassification.proposedTimes.length > 0) {
-      // Check availability for the first proposed time
-      const proposedTime = meetingClassification.proposedTimes[0];
-      const { start, end } = proposedTimeToDate(
-        proposedTime,
-        meetingClassification.durationMinutes ?? 30
-      );
+    // Wrap calendar operations in try-catch for graceful degradation
+    // If calendar operations fail, we still generate a draft (just without availability info)
+    try {
+      // Check if calendar is connected
+      const calendarConnection = await checkCalendarConnection(userId);
 
-      console.log(`[EmailHandler] Checking availability: ${start.toISOString()} to ${end.toISOString()}`);
+      if (calendarConnection.connected && meetingClassification.proposedTimes.length > 0) {
+        // Check availability for the first proposed time
+        const proposedTime = meetingClassification.proposedTimes[0];
+        const { start, end } = proposedTimeToDate(
+          proposedTime,
+          meetingClassification.durationMinutes ?? 30
+        );
 
-      const availability = await checkAvailability(userId, start.toISOString(), end.toISOString());
+        console.log(`[EmailHandler] Checking availability: ${start.toISOString()} to ${end.toISOString()}`);
 
-      // Get calendly URL for fallback
-      const calendlyUrl = await getCalendlyUrl(userId);
+        const availability = await checkAvailability(userId, start.toISOString(), end.toISOString());
 
-      // Get alternative slots if not available
-      let alternativeSlots: string[] = [];
-      if (!availability.isAvailable) {
-        const slotsResult = await getAvailableSlots(userId, start);
-        alternativeSlots = slotsResult.slots.slice(0, 3).map((slot) => {
-          const slotDate = new Date(slot.start);
-          return slotDate.toLocaleString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          });
-        });
+        // Check if the availability check returned an error
+        if (availability.error) {
+          console.warn(`[EmailHandler] Availability check returned error: ${availability.error}`);
+          // Don't set calendarCheckSucceeded - we'll fall back to generic response
+        } else {
+          isAvailable = availability.isAvailable;
+          calendarCheckSucceeded = true;
+          // Update availability status for persistence
+          availabilityStatus = isAvailable ? 'available' : 'busy';
+
+          // Get alternative slots if not available
+          if (!isAvailable) {
+            try {
+              const slotsResult = await getAvailableSlots(userId, start);
+              if (!slotsResult.error) {
+                alternativeSlots = slotsResult.slots.slice(0, 3).map((slot) => {
+                  const slotDate = new Date(slot.start);
+                  return slotDate.toLocaleString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  });
+                });
+              } else {
+                console.warn(`[EmailHandler] Failed to get alternative slots: ${slotsResult.error}`);
+              }
+            } catch (slotsError) {
+              // Non-critical: we can still respond without alternative slots
+              console.warn('[EmailHandler] Error getting alternative slots:', slotsError);
+            }
+          }
+
+          console.log(`[EmailHandler] Availability: ${isAvailable ? 'AVAILABLE' : 'BUSY'}`);
+        }
+      } else if (!calendarConnection.connected) {
+        console.log('[EmailHandler] Calendar not connected');
+      } else {
+        console.log('[EmailHandler] No proposed times in meeting request');
       }
+    } catch (calendarError) {
+      // Log the error but don't crash - we'll generate a generic meeting response
+      console.error('[EmailHandler] Calendar operation failed:', calendarError);
+      console.log('[EmailHandler] Falling back to generic meeting response');
+    }
 
-      console.log(`[EmailHandler] Availability: ${availability.isAvailable ? 'AVAILABLE' : 'BUSY'}`);
+    // Get calendly URL for fallback (outside try-catch as it's from user profile, not calendar)
+    const calendlyUrl = await getCalendlyUrl(userId);
 
-      // Generate meeting-specific draft
+    if (calendarCheckSucceeded) {
+      // Generate meeting-specific draft with availability info
       draftBody = await generateMeetingDraftReply(
         emailData,
         userName,
         meetingClassification,
-        availability.isAvailable,
+        isAvailable,
         calendlyUrl,
         alternativeSlots
       );
     } else {
-      // Calendar not connected or no proposed times - generate meeting draft without availability
-      console.log('[EmailHandler] Calendar not connected or no proposed times, generating generic meeting response');
-      const calendlyUrl = await getCalendlyUrl(userId);
-
+      // Calendar check failed or not available - generate meeting draft without availability
+      console.log('[EmailHandler] Generating generic meeting response (calendar check unavailable)');
       draftBody = await generateMeetingDraftReply(
         emailData,
         userName,
@@ -433,6 +486,21 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     const draftId = (data?.draft_id || data?.id || '') as string;
 
     console.log(`[EmailHandler] Draft created successfully: ${draftId}`);
+
+    // Persist the processed email for brief section and history
+    // This is non-blocking - failure here shouldn't fail the webhook
+    await saveProcessedEmail({
+      messageId: emailData.messageId,
+      threadId: emailData.threadId || undefined,
+      userId,
+      from: emailData.from,
+      subject: emailData.subject || undefined,
+      snippet: emailData.snippet || undefined,
+      isMeetingRequest: meetingClassification.isMeetingRequest,
+      availabilityStatus,
+      draftId: draftId || undefined,
+      draftBody,
+    });
 
     return {
       processed: true,
