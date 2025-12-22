@@ -40,14 +40,14 @@ const validGmailAuthConfigId: string = GMAIL_AUTH_CONFIG_ID;
 const validGcalAuthConfigId: string = GCAL_AUTH_CONFIG_ID;
 
 // Initialize Composio with Mastra provider and toolkit versions
+// Available versions can be queried via: curl https://backend.composio.dev/api/v3/toolkits/{toolkit}
 const composio = new Composio({
   apiKey: validApiKey,
   provider: new MastraProvider(),
   toolkitVersions: {
     gmail: '20251027_00',
+    googlecalendar: '20251222_01', // Latest version as of Dec 2025
   },
-  // Skip version check for googlecalendar - tools are available but version unknown
-  dangerouslySkipVersionCheck: true,
 });
 
 export {
