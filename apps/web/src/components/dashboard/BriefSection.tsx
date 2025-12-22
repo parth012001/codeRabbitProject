@@ -61,7 +61,7 @@ interface MeetingEmailItemProps {
 }
 
 function MeetingEmailItem({ email }: MeetingEmailItemProps) {
-  const statusConfig = {
+  const statusConfig: Record<string, { label: string; className: string }> = {
     available: {
       label: 'Available',
       className: 'bg-green-100 text-green-700',
@@ -76,7 +76,8 @@ function MeetingEmailItem({ email }: MeetingEmailItemProps) {
     },
   };
 
-  const status = statusConfig[email.availabilityStatus];
+  // Defensive fallback to 'unknown' for unexpected status values
+  const status = statusConfig[email.availabilityStatus] ?? statusConfig.unknown;
 
   return (
     <div className="flex items-center gap-3 py-2">
