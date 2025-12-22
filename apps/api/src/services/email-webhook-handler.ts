@@ -4,6 +4,7 @@ import {
   GMAIL_ACTIONS,
   type GmailWebhookPayload,
 } from './composio.js';
+import { getUserDisplayName } from './user-profile.js';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -28,8 +29,10 @@ interface EmailData {
 
 /**
  * Generate a draft reply using OpenAI
+ * @param email - The email data to reply to
+ * @param userName - The user's display name for the signature
  */
-async function generateDraftReply(email: EmailData): Promise<string> {
+async function generateDraftReply(email: EmailData, userName: string): Promise<string> {
   const prompt = `You are a helpful email assistant. Generate a professional and friendly draft reply to the following email.
 
 From: ${email.from}
@@ -41,7 +44,8 @@ Requirements:
 - Address the main points of the email
 - Keep the response concise but complete
 - Don't include a subject line, just the body
-- Sign off appropriately
+- Sign off with "Best regards," followed by the sender's name: ${userName}
+- Do NOT use placeholders like [Your Name], [Your Position], or [Your Contact Information]
 
 Draft reply:`;
 
@@ -177,9 +181,14 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     };
   }
 
+  // Fetch user profile for personalized signature
+  console.log('[EmailHandler] Fetching user profile...');
+  const userName = await getUserDisplayName(userId);
+  console.log(`[EmailHandler] User name: ${userName}`);
+
   // Generate draft reply using AI
   console.log('[EmailHandler] Generating draft reply...');
-  const draftBody = await generateDraftReply(emailData);
+  const draftBody = await generateDraftReply(emailData, userName);
   console.log('[EmailHandler] Generated draft body:', draftBody.substring(0, 200) + '...');
 
   // Extract just the email address from "Name <email>" format

@@ -13,7 +13,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^1.1.6",
     "@ai-sdk/openai": "^1.1.5",
-    "openai": "^4.77.0",
+    "@clerk/backend": "^2.29.0",
     "@composio/core": "^0.3.1",
     "@composio/mastra": "^0.3.1",
     "@email-assistant/config": "workspace:*",
@@ -22,6 +22,7 @@
     "@mastra/core": "^0.24.9",
     "@mastra/libsql": "^0.16.4",
     "@mastra/memory": "^0.15.13",
+    "openai": "^4.77.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
