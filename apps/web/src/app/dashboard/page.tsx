@@ -14,6 +14,7 @@ import {
   updateUserSettings,
   ApiError,
 } from "@/lib/api";
+import { BriefSection } from "@/components/dashboard/BriefSection";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import type { UserSettings } from "@email-assistant/types";
@@ -301,6 +302,9 @@ function DashboardContent() {
             </CardContent>
           </Card>
         )}
+
+        {/* Brief Section */}
+        <BriefSection gmailConnected={gmailConnected} />
 
         {/* Gmail Connection */}
         <Card className="mb-6">

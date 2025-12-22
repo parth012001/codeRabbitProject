@@ -250,3 +250,52 @@ export interface UserSettingsResponse {
   settings: UserSettings;
   error?: string;
 }
+
+// ===========================================
+// Brief Types
+// ===========================================
+
+export type AvailabilityStatus = 'available' | 'busy' | 'unknown';
+
+export interface ProcessedEmail {
+  id: string;
+  messageId: string;
+  threadId: string | null;
+  userId: string;
+  from: string;
+  subject: string | null;
+  snippet: string | null;
+  isMeetingRequest: boolean;
+  availabilityStatus: AvailabilityStatus;
+  isUrgent: boolean;
+  draftId: string | null;
+  draftBody: string | null;
+  processedAt: string;
+}
+
+export interface BriefStats {
+  total: number;
+  meetings: number;
+  urgent: number;
+}
+
+export interface MeetingBreakdown {
+  available: ProcessedEmail[];
+  busy: ProcessedEmail[];
+  unknown: ProcessedEmail[];
+}
+
+export interface Brief {
+  summary: string;
+  stats: BriefStats;
+  meetingBreakdown: MeetingBreakdown;
+  draftsReady: number;
+  emails: ProcessedEmail[];
+  generatedAt: string;
+}
+
+export interface BriefResponse {
+  success: boolean;
+  brief?: Brief;
+  error?: string;
+}

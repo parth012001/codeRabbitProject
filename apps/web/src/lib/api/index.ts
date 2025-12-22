@@ -18,5 +18,8 @@ export {
 // Settings API
 export { getUserSettings, updateUserSettings } from './settings';
 
+// Brief API
+export { getBrief } from './brief';
+
 // Agent API
 export { generateAgentResponse, type AgentName } from './agent';
