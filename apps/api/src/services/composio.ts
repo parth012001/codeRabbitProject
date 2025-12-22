@@ -10,7 +10,7 @@ interface ComposioConnection {
   createdAt?: string;
 }
 
-interface ComposioToolExecutionResult {
+export interface ComposioToolExecutionResult {
   data: Record<string, unknown>;
   error: string | null;
   successful: boolean;

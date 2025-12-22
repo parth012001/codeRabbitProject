@@ -13,7 +13,7 @@ import {
   formatProposedTimes,
   type MeetingClassification,
 } from './meeting-detector.js';
-import { checkAvailability, getAvailableSlots } from './calendar-service.js';
+import { checkAvailability, getAvailableSlots, createCalendarEvent } from './calendar-service.js';
 import {
   isEmailAlreadyProcessed,
   saveProcessedEmail,
@@ -353,6 +353,10 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
   let draftBody: string;
   // Track availability status for persistence
   let availabilityStatus: AvailabilityStatus = 'unknown';
+  // Track event creation params for when user is available (accessible outside meeting block)
+  let shouldCreateEvent = false;
+  let eventStartTime: string | null = null;
+  let eventDurationMinutes: number = 30;
 
   // Handle meeting request emails with calendar integration
   if (shouldCheckCalendar(meetingClassification) && calendarEnabled) {
@@ -390,6 +394,13 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
           calendarCheckSucceeded = true;
           // Update availability status for persistence
           availabilityStatus = isAvailable ? 'available' : 'busy';
+
+          // If available, prepare to create calendar event
+          if (isAvailable) {
+            shouldCreateEvent = true;
+            eventStartTime = start.toISOString();
+            eventDurationMinutes = meetingClassification.durationMinutes ?? 30;
+          }
 
           // Get alternative slots if not available
           if (!isAvailable) {
@@ -466,10 +477,11 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
   const recipientEmail = emailMatch ? emailMatch[1] : emailData.from;
   console.log('[EmailHandler] Recipient email:', recipientEmail);
 
-  // Create draft in Gmail
+  // Create draft in Gmail (and calendar event if user is available)
   console.log('[EmailHandler] Creating draft in Gmail...');
   try {
-    const result = await composio.tools.execute(GMAIL_ACTIONS.CREATE_DRAFT, {
+    // Build the promises to run in parallel
+    const draftPromise = composio.tools.execute(GMAIL_ACTIONS.CREATE_DRAFT, {
       userId: userId,
       arguments: {
         recipient_email: recipientEmail,
@@ -480,12 +492,53 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
       },
     });
 
-    console.log('[EmailHandler] Composio result:', JSON.stringify(result, null, 2));
+    // Create calendar event in parallel if user is available
+    let eventPromise: Promise<{ success: boolean; eventId?: string; error?: string }> | null = null;
+    if (shouldCreateEvent && eventStartTime) {
+      console.log('[EmailHandler] Creating calendar event in parallel...');
 
-    const data = result.data as Record<string, unknown>;
+      // Build event description from meeting details
+      const eventDescription = [
+        meetingClassification.meetingPurpose ? `Purpose: ${meetingClassification.meetingPurpose}` : '',
+        meetingClassification.extractedDetails?.platform
+          ? `Platform: ${meetingClassification.extractedDetails.platform}`
+          : '',
+        `Requested by: ${emailData.from}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      eventPromise = createCalendarEvent(userId, {
+        title: emailData.subject || 'Meeting',
+        description: eventDescription,
+        startTime: eventStartTime,
+        durationMinutes: eventDurationMinutes,
+        location: meetingClassification.extractedDetails?.location ?? undefined,
+        attendees: [recipientEmail], // Add the sender as attendee
+      });
+    }
+
+    // Wait for both operations to complete
+    const [draftResult, eventResult] = await Promise.all([
+      draftPromise,
+      eventPromise ?? Promise.resolve(null),
+    ]);
+
+    console.log('[EmailHandler] Composio draft result:', JSON.stringify(draftResult, null, 2));
+
+    const data = draftResult.data as Record<string, unknown>;
     const draftId = (data?.draft_id || data?.id || '') as string;
 
     console.log(`[EmailHandler] Draft created successfully: ${draftId}`);
+
+    // Log event creation result
+    if (eventResult) {
+      if (eventResult.success) {
+        console.log(`[EmailHandler] Calendar event created successfully: ${eventResult.eventId}`);
+      } else {
+        console.warn(`[EmailHandler] Calendar event creation failed: ${eventResult.error}`);
+      }
+    }
 
     // Persist the processed email for brief section and history
     // This is non-blocking - failure here shouldn't fail the webhook

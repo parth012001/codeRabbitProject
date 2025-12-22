@@ -2,6 +2,7 @@ import {
   composio,
   checkCalendarConnection,
   CALENDAR_ACTIONS,
+  type ComposioToolExecutionResult,
 } from './composio.js';
 
 // ============================================================================
@@ -480,6 +481,112 @@ export async function getAvailabilitySummary(
       isConnected: true,
       summary: [],
       error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// ============================================================================
+// Event Creation
+// ============================================================================
+
+/**
+ * Input for creating a calendar event
+ */
+export interface CreateEventInput {
+  /** Event title/summary */
+  title: string;
+  /** Event description */
+  description?: string;
+  /** Event start time as ISO string */
+  startTime: string;
+  /** Event duration in minutes (default: 30) */
+  durationMinutes?: number;
+  /** Event location */
+  location?: string;
+  /** Attendee email addresses */
+  attendees?: string[];
+  /** Timezone (default: user's timezone or UTC) */
+  timezone?: string;
+}
+
+/**
+ * Result of creating a calendar event
+ */
+export interface CreateEventResult {
+  success: boolean;
+  eventId?: string;
+  eventLink?: string;
+  error?: string;
+}
+
+/**
+ * Create a calendar event for a confirmed meeting
+ * @param userId - Clerk user ID
+ * @param input - Event details
+ * @returns Result with event ID if successful
+ */
+export async function createCalendarEvent(
+  userId: string,
+  input: CreateEventInput
+): Promise<CreateEventResult> {
+  try {
+    // Check connection first
+    const connection = await checkCalendarConnection(userId);
+    if (!connection.connected) {
+      return {
+        success: false,
+        error: 'Google Calendar not connected',
+      };
+    }
+
+    const durationMinutes = input.durationMinutes ?? 30;
+    const durationHours = Math.floor(durationMinutes / 60);
+    const remainingMinutes = durationMinutes % 60;
+
+    // Attendees should be plain email strings for Composio API
+    const attendees = input.attendees ?? [];
+
+    console.log(`[Calendar] Creating event: "${input.title}" at ${input.startTime} for ${durationMinutes} mins`);
+
+    const result = await composio.tools.execute(CALENDAR_ACTIONS.CREATE_EVENT, {
+      userId,
+      arguments: {
+        calendar_id: 'primary',
+        start_datetime: input.startTime,
+        timezone: input.timezone ?? 'UTC',
+        event_duration_hour: durationHours,
+        event_duration_minutes: remainingMinutes,
+        summary: input.title,
+        description: input.description ?? '',
+        location: input.location ?? '',
+        attendees: attendees,
+      },
+    });
+
+    if (!result.successful) {
+      console.error('[Calendar] Failed to create event:', result.error);
+      return {
+        success: false,
+        error: result.error ?? 'Failed to create event',
+      };
+    }
+
+    const data = result.data as Record<string, unknown>;
+    const eventId = (data?.id || data?.eventId || '') as string;
+    const eventLink = (data?.htmlLink || '') as string;
+
+    console.log(`[Calendar] Event created successfully: ${eventId}`);
+
+    return {
+      success: true,
+      eventId,
+      eventLink,
+    };
+  } catch (error) {
+    console.error('[Calendar] Error creating event:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error creating event',
     };
   }
 }
