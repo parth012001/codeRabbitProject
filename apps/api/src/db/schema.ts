@@ -60,6 +60,9 @@ export const processedEmails = pgTable(
     // 'available' | 'busy' | 'unknown' (unknown = calendar not connected or check failed)
     availabilityStatus: text('availability_status').default('unknown').notNull(),
 
+    // Urgency flag - detected via keywords in subject/body
+    isUrgent: boolean('is_urgent').default(false).notNull(),
+
     // Generated draft information
     draftId: text('draft_id'),
     draftBody: text('draft_body'),

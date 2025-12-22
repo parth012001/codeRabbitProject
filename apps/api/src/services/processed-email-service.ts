@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, gte } from 'drizzle-orm';
 import { db, processedEmails, type NewProcessedEmail, type ProcessedEmail } from '../db/index.js';
 
 /**
@@ -18,6 +18,7 @@ export interface SaveProcessedEmailInput {
   snippet?: string;
   isMeetingRequest: boolean;
   availabilityStatus: AvailabilityStatus;
+  isUrgent: boolean;
   draftId?: string;
   draftBody?: string;
 }
@@ -60,6 +61,7 @@ export async function saveProcessedEmail(input: SaveProcessedEmailInput): Promis
       snippet: input.snippet ?? null,
       isMeetingRequest: input.isMeetingRequest,
       availabilityStatus: input.availabilityStatus,
+      isUrgent: input.isUrgent,
       draftId: input.draftId ?? null,
       draftBody: input.draftBody ?? null,
     };
@@ -121,6 +123,35 @@ export async function getRecentMeetingEmails(
     return emails;
   } catch (error) {
     console.error('[ProcessedEmailService] Error fetching meeting emails:', error);
+    return [];
+  }
+}
+
+/**
+ * Get emails for brief generation - last N emails within a time window
+ * @param userId - Clerk user ID
+ * @param hoursBack - Number of hours to look back (default: 24)
+ * @param limit - Maximum number of emails to return (default: 10)
+ * @returns List of processed emails within the time window, most recent first
+ */
+export async function getEmailsForBrief(
+  userId: string,
+  hoursBack: number = 24,
+  limit: number = 10
+): Promise<ProcessedEmail[]> {
+  try {
+    const cutoffTime = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+
+    const emails = await db
+      .select()
+      .from(processedEmails)
+      .where(and(eq(processedEmails.userId, userId), gte(processedEmails.processedAt, cutoffTime)))
+      .orderBy(desc(processedEmails.processedAt))
+      .limit(limit);
+
+    return emails;
+  } catch (error) {
+    console.error('[ProcessedEmailService] Error fetching emails for brief:', error);
     return [];
   }
 }

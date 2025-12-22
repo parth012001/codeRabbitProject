@@ -19,6 +19,7 @@ import {
   saveProcessedEmail,
   type AvailabilityStatus,
 } from './processed-email-service.js';
+import { detectUrgency } from './urgency-detector.js';
 
 // Validate required environment variable
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -353,6 +354,17 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
   let draftBody: string;
   // Track availability status for persistence
   let availabilityStatus: AvailabilityStatus = 'unknown';
+  // Track urgency for persistence
+  // For meeting emails: use AI classification's isUrgent
+  // For non-meeting emails: use regex-based detection
+  let isUrgent = meetingClassification.isMeetingRequest
+    ? meetingClassification.isUrgent
+    : detectUrgency(emailData.subject, emailData.body || emailData.snippet);
+
+  if (isUrgent) {
+    console.log('[EmailHandler] Email flagged as URGENT');
+  }
+
   // Track event creation params for when user is available (accessible outside meeting block)
   let shouldCreateEvent = false;
   let eventStartTime: string | null = null;
@@ -551,6 +563,7 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
       snippet: emailData.snippet || undefined,
       isMeetingRequest: meetingClassification.isMeetingRequest,
       availabilityStatus,
+      isUrgent,
       draftId: draftId || undefined,
       draftBody,
     });
