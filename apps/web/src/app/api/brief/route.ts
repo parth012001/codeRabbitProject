@@ -2,15 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { BriefResponse, ApiErrorResponse } from '@email-assistant/types';
 import { withTimeout } from '@/lib/utils/timeout';
-
-function getMastraBaseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_MASTRA_API_URL;
-  if (!url) {
-    throw new Error('NEXT_PUBLIC_MASTRA_API_URL is not configured');
-  }
-  // Remove /api suffix if present - custom Mastra routes are at root level
-  return url.replace(/\/api$/, '');
-}
+import { getMastraBaseUrl } from '@/lib/api';
 
 // Extended timeout for AI summary generation
 const TIMEOUT_MS = 15000;

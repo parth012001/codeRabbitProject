@@ -4,8 +4,7 @@ import type {
   AgentMessage,
 } from '@email-assistant/types';
 import { apiRequest, getMastraApiUrl } from './client';
-
-const AGENT_TIMEOUT = 60000; // Agent calls can take longer
+import { API_TIMEOUTS } from '../config/timeouts';
 
 export type AgentName =
   | 'emailManagerAgent'
@@ -35,7 +34,7 @@ export async function generateAgentResponse(
     {
       method: 'POST',
       body: JSON.stringify(request),
-      timeout: AGENT_TIMEOUT,
+      timeout: API_TIMEOUTS.AGENT,
     }
   );
 }

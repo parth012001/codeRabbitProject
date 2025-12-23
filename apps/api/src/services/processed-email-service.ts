@@ -1,10 +1,9 @@
 import { eq, and, desc, gte } from 'drizzle-orm';
 import { db, processedEmails, type NewProcessedEmail, type ProcessedEmail } from '../db/index.js';
+import type { AvailabilityStatus } from '@email-assistant/types';
 
-/**
- * Availability status enum for type safety
- */
-export type AvailabilityStatus = 'available' | 'busy' | 'unknown';
+// Re-export for backwards compatibility with existing imports
+export type { AvailabilityStatus };
 
 /**
  * Input type for saving a processed email
