@@ -482,8 +482,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     draftBody = await generateDraftReply(emailData, userName);
   }
 
-  console.log('[EmailHandler] Generated draft body:', draftBody.substring(0, 200) + '...');
-
   // Extract just the email address from "Name <email>" format
   const emailMatch = emailData.from.match(/<(.+)>/);
   const recipientEmail = emailMatch ? emailMatch[1] : emailData.from;
@@ -535,8 +533,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
       draftPromise,
       eventPromise ?? Promise.resolve(null),
     ]);
-
-    console.log('[EmailHandler] Composio draft result:', JSON.stringify(draftResult, null, 2));
 
     const data = draftResult.data as Record<string, unknown>;
     const draftId = (data?.draft_id || data?.id || '') as string;

@@ -160,8 +160,6 @@ export const fetchEmailsComposioTool = createTool({
         },
       });
 
-      console.log('[Composio] FETCH_EMAILS raw result:', JSON.stringify(result, null, 2));
-
       const data = result.data as Record<string, unknown>;
       const emails = (data?.emails || data?.messages || []) as Array<{
         id: string;

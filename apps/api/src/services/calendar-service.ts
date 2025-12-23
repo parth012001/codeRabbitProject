@@ -259,8 +259,6 @@ export async function checkAvailability(
     }
 
     const data = result.data as FreeBusyResponse;
-    console.log('[Calendar] FreeBusy response:', JSON.stringify(data, null, 2));
-
     // Check if primary calendar has busy periods
     // Note: Google Calendar FreeBusy API returns the calendar keyed by the actual email address,
     // not "primary". We need to find the first calendar in the response.
