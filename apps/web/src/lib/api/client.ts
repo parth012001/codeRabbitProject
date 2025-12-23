@@ -1,4 +1,5 @@
 import type { ApiErrorResponse } from '@email-assistant/types';
+import { API_TIMEOUTS } from '../config/timeouts';
 
 export class ApiError extends Error {
   constructor(
@@ -41,7 +42,7 @@ export async function apiRequest<T>(
   url: string,
   options: FetchOptions = {}
 ): Promise<T> {
-  const { timeout = 30000, ...fetchOptions } = options;
+  const { timeout = API_TIMEOUTS.DEFAULT, ...fetchOptions } = options;
 
   const fetchPromise = fetch(url, {
     ...fetchOptions,
@@ -72,10 +73,22 @@ export async function apiRequest<T>(
   return response.json();
 }
 
+/**
+ * Get the Mastra API URL for built-in routes (e.g., /api/agents/...)
+ */
 export function getMastraApiUrl(): string {
   const url = process.env.NEXT_PUBLIC_MASTRA_API_URL;
   if (!url) {
     throw new Error('NEXT_PUBLIC_MASTRA_API_URL is not configured');
   }
   return url;
+}
+
+/**
+ * Get the Mastra base URL for custom registered routes (e.g., /settings, /brief)
+ * Strips /api suffix since custom routes are registered at root level
+ */
+export function getMastraBaseUrl(): string {
+  const url = getMastraApiUrl();
+  return url.replace(/\/api$/, '');
 }

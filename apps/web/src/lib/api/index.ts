@@ -1,5 +1,5 @@
 // API Client exports
-export { ApiError, apiRequest, getMastraApiUrl } from './client';
+export { ApiError, apiRequest, getMastraApiUrl, getMastraBaseUrl } from './client';
 
 // Gmail API
 export {

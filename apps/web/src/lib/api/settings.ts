@@ -1,12 +1,11 @@
 import type { UserSettings, UserSettingsResponse } from '@email-assistant/types';
 import { apiRequest } from './client';
-
-const SETTINGS_TIMEOUT = 10000;
+import { API_TIMEOUTS } from '../config/timeouts';
 
 export async function getUserSettings(): Promise<UserSettingsResponse> {
   return apiRequest<UserSettingsResponse>('/api/settings', {
     method: 'GET',
-    timeout: SETTINGS_TIMEOUT,
+    timeout: API_TIMEOUTS.STATUS_CHECK,
   });
 }
 
@@ -16,6 +15,6 @@ export async function updateUserSettings(
   return apiRequest<UserSettingsResponse>('/api/settings', {
     method: 'PUT',
     body: JSON.stringify(settings),
-    timeout: SETTINGS_TIMEOUT,
+    timeout: API_TIMEOUTS.STATUS_CHECK,
   });
 }

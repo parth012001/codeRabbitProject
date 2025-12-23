@@ -1,8 +1,6 @@
 import type { BriefResponse } from '@email-assistant/types';
 import { apiRequest } from './client';
-
-// Extended timeout for AI summary generation (1-2 seconds expected, 15s buffer)
-const BRIEF_TIMEOUT = 15000;
+import { API_TIMEOUTS } from '../config/timeouts';
 
 /**
  * Fetch the AI-generated brief for the authenticated user
@@ -11,6 +9,6 @@ const BRIEF_TIMEOUT = 15000;
 export async function getBrief(): Promise<BriefResponse> {
   return apiRequest<BriefResponse>('/api/brief', {
     method: 'GET',
-    timeout: BRIEF_TIMEOUT,
+    timeout: API_TIMEOUTS.AI_OPERATION,
   });
 }

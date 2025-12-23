@@ -33,6 +33,7 @@ import { checkAvailability, getAvailableSlots } from '../services/calendar-servi
 import { detectMeetingRequest } from '../services/meeting-detector.js';
 import { getUserSettings, upsertUserSettings } from '../services/user-profile.js';
 import { generateBrief } from '../services/brief-service.js';
+import { checkRateLimit, createRateLimitResponse } from '../lib/rate-limiter.js';
 
 // Clerk secret key for JWT verification
 const clerkSecretKey = process.env.CLERK_SECRET_KEY;
@@ -121,8 +122,6 @@ export const mastra = new Mastra({
         handler: async (c) => {
           try {
             const payload = await c.req.json();
-            console.log('[Webhook] Received Composio event:', JSON.stringify(payload, null, 2));
-
             const result = await handleEmailWebhook(payload);
 
             return c.json({
@@ -290,7 +289,6 @@ export const mastra = new Mastra({
               return c.json({ success: false, error: 'Authentication required' }, 401);
             }
 
-            console.log(`[Calendar] Checking connection for user: ${auth.userId}`);
             const result = await checkCalendarConnection(auth.userId);
 
             return c.json({
@@ -335,7 +333,6 @@ export const mastra = new Mastra({
               );
             }
 
-            console.log(`[Calendar] Checking availability from ${body.startTime} to ${body.endTime}`);
             const result = await checkAvailability(auth.userId, body.startTime, body.endTime);
 
             return c.json({
@@ -376,7 +373,6 @@ export const mastra = new Mastra({
               return c.json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD' }, 400);
             }
 
-            console.log(`[Calendar] Getting available slots for ${dateParam}`);
             const result = await getAvailableSlots(auth.userId, date);
 
             return c.json({
@@ -414,6 +410,12 @@ export const mastra = new Mastra({
               return c.json({ success: false, error: 'Authentication required' }, 401);
             }
 
+            // Rate limit AI-powered endpoint
+            const rateLimit = checkRateLimit(auth.userId);
+            if (!rateLimit.allowed) {
+              return createRateLimitResponse(rateLimit.resetIn);
+            }
+
             const body = (await c.req.json()) as {
               from?: string;
               subject?: string;
@@ -427,7 +429,6 @@ export const mastra = new Mastra({
               );
             }
 
-            console.log(`[MeetingDetect] Analyzing email from: ${body.from}`);
             const classification = await detectMeetingRequest({
               from: body.from,
               subject: body.subject,
@@ -536,7 +537,6 @@ export const mastra = new Mastra({
               }
             }
 
-            console.log(`[Settings] Updating settings for user: ${auth.userId}`);
             const settings = await upsertUserSettings(auth.userId, body);
 
             return c.json({
@@ -570,7 +570,12 @@ export const mastra = new Mastra({
               return c.json({ success: false, error: 'Authentication required' }, 401);
             }
 
-            console.log(`[Brief] Generating brief for user: ${auth.userId.substring(0, 8)}...`);
+            // Rate limit AI-powered endpoint
+            const rateLimit = checkRateLimit(auth.userId);
+            if (!rateLimit.allowed) {
+              return createRateLimitResponse(rateLimit.resetIn);
+            }
+
             const brief = await generateBrief(auth.userId);
 
             return c.json({

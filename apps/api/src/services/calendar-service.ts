@@ -130,8 +130,6 @@ export async function getCalendarEvents(
       return { events: [], error: 'Google Calendar not connected' };
     }
 
-    console.log(`[Calendar] Fetching events for user from ${timeMin} to ${timeMax}`);
-
     const result = await composio.tools.execute(CALENDAR_ACTIONS.LIST_EVENTS, {
       userId,
       arguments: {
@@ -161,7 +159,6 @@ export async function getCalendarEvents(
       }
     }
 
-    console.log(`[Calendar] Found ${events.length} events`);
     return { events };
   } catch (error) {
     console.error('[Calendar] Error fetching events:', error);
@@ -213,28 +210,6 @@ export async function checkAvailability(
       };
     }
 
-    console.log(`[Calendar] Checking free/busy from ${proposedStart} to ${proposedEnd}`);
-
-    // DEBUG: List available calendar tools - just the names
-    try {
-      const { GCAL_AUTH_CONFIG_ID } = await import('./composio.js');
-      const toolsByAuth = await composio.tools.get(userId, {
-        authConfigIds: [GCAL_AUTH_CONFIG_ID]
-      });
-      const toolNames = Object.keys(toolsByAuth);
-      console.log(`[Calendar] Available GOOGLECALENDAR tools (${toolNames.length}):`, toolNames);
-
-      // Look for freebusy-related tools
-      const freebusyTools = toolNames.filter(name =>
-        name.toLowerCase().includes('free') ||
-        name.toLowerCase().includes('busy') ||
-        name.toLowerCase().includes('availability')
-      );
-      console.log(`[Calendar] FreeBusy-related tools:`, freebusyTools);
-    } catch (toolsError) {
-      console.error('[Calendar] Failed to list available tools:', toolsError);
-    }
-
     // Use FreeBusy query - the proper way to check availability
     // Google Calendar API uses camelCase parameters
     const result = await composio.tools.execute(CALENDAR_ACTIONS.FREEBUSY_QUERY, {
@@ -271,10 +246,8 @@ export async function checkAvailability(
       // If not found, get the first calendar in the response (which is the user's actual email)
       if (!primaryCalendar) {
         const calendarKeys = Object.keys(data.calendars);
-        console.log('[Calendar] Available calendar keys:', calendarKeys);
         if (calendarKeys.length > 0) {
           primaryCalendar = data.calendars[calendarKeys[0]];
-          console.log(`[Calendar] Using calendar key: ${calendarKeys[0]}`);
         }
       }
     }
@@ -291,10 +264,6 @@ export async function checkAvailability(
     }));
 
     const isAvailable = busyPeriods.length === 0;
-
-    console.log(
-      `[Calendar] Availability check: ${isAvailable ? 'AVAILABLE' : 'BUSY'} (${busyPeriods.length} busy periods)`
-    );
 
     return {
       isConnected: true,
@@ -406,7 +375,6 @@ export async function getAvailableSlots(
       currentSlotStart += slotDurationMs;
     }
 
-    console.log(`[Calendar] Found ${slots.length} available slots on ${date.toDateString()}`);
     return { slots };
   } catch (error) {
     console.error('[Calendar] Error getting available slots:', error);

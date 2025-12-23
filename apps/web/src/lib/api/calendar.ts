@@ -1,20 +1,18 @@
 import type { CalendarConnectionStatus, CalendarConnectResponse } from '@email-assistant/types';
 import { apiRequest } from './client';
-
-const CALENDAR_STATUS_TIMEOUT = 10000;
-const CALENDAR_CONNECT_TIMEOUT = 15000;
+import { API_TIMEOUTS } from '../config/timeouts';
 
 export async function checkCalendarConnection(): Promise<CalendarConnectionStatus> {
   return apiRequest<CalendarConnectionStatus>('/api/calendar/status', {
     method: 'GET',
-    timeout: CALENDAR_STATUS_TIMEOUT,
+    timeout: API_TIMEOUTS.STATUS_CHECK,
   });
 }
 
 export async function initiateCalendarConnection(): Promise<CalendarConnectResponse> {
   return apiRequest<CalendarConnectResponse>('/api/calendar/connect', {
     method: 'POST',
-    timeout: CALENDAR_CONNECT_TIMEOUT,
+    timeout: API_TIMEOUTS.CONNECTION,
   });
 }
 

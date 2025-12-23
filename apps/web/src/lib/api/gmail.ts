@@ -3,15 +3,13 @@ import type {
   GmailConnectResponse,
 } from '@email-assistant/types';
 import { apiRequest, ApiError } from './client';
-
-const GMAIL_STATUS_TIMEOUT = 10000;
-const GMAIL_CONNECT_TIMEOUT = 15000;
+import { API_TIMEOUTS } from '../config/timeouts';
 
 export async function checkGmailConnection(): Promise<GmailConnectionStatus> {
   try {
     return await apiRequest<GmailConnectionStatus>('/api/gmail/status', {
       method: 'GET',
-      timeout: GMAIL_STATUS_TIMEOUT,
+      timeout: API_TIMEOUTS.STATUS_CHECK,
     });
   } catch (error) {
     if (error instanceof ApiError && error.status === 408) {
@@ -24,7 +22,7 @@ export async function checkGmailConnection(): Promise<GmailConnectionStatus> {
 export async function initiateGmailConnection(): Promise<GmailConnectResponse> {
   return apiRequest<GmailConnectResponse>('/api/gmail/connect', {
     method: 'POST',
-    timeout: GMAIL_CONNECT_TIMEOUT,
+    timeout: API_TIMEOUTS.CONNECTION,
   });
 }
 

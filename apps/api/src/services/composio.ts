@@ -280,8 +280,6 @@ export async function createGmailTrigger(
       triggerConfig: {},
     });
 
-    console.log(`[Composio] Trigger created:`, JSON.stringify(triggerResult, null, 2));
-
     return {
       success: true,
       triggerId: triggerResult.triggerId || String(triggerResult),

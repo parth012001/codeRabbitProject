@@ -276,12 +276,9 @@ function shouldProcessEmail(email: EmailData, userEmail: string | null): boolean
  * Main handler for email webhook events
  */
 export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<WebhookResult> {
-  console.log('[EmailHandler] Processing webhook payload');
-
   // Check if this is a Gmail new message event
   const eventType = payload.type || payload.triggerName || '';
   if (!eventType.toLowerCase().includes('gmail') && !eventType.toLowerCase().includes('email')) {
-    console.log(`[EmailHandler] Ignoring non-email event: ${eventType}`);
     return {
       processed: false,
       message: `Ignored non-email event type: ${eventType}`,
@@ -292,7 +289,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
   const rawData = payload.data as Record<string, unknown> | undefined;
   const userId = payload.userId || (rawData?.['user_id'] as string);
   if (!userId) {
-    console.log('[EmailHandler] No userId in payload');
     return {
       processed: false,
       message: 'No userId provided in webhook payload',
@@ -308,8 +304,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     };
   }
 
-  console.log(`[EmailHandler] Processing email from: ${emailData.from}, subject: ${emailData.subject}`);
-
   // Check for duplicate processing (fail-open: if check fails, we still process)
   const alreadyProcessed = await isEmailAlreadyProcessed(userId, emailData.messageId);
   if (alreadyProcessed) {
@@ -321,11 +315,9 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
   }
 
   // Fetch user profile for self-sent detection and personalized signature
-  console.log('[EmailHandler] Fetching user profile...');
   const userProfile = await getUserProfile(userId);
   const userName = userProfile?.fullName || 'User';
   const userEmail = userProfile?.email || null;
-  console.log(`[EmailHandler] User: ${userName}, Email: ${userEmail ? userEmail.substring(0, 3) + '***' : 'unknown'}`);
 
   // Check if we should process this email
   if (!shouldProcessEmail(emailData, userEmail)) {
@@ -340,16 +332,11 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
   const calendarEnabled = userSettings?.calendarEnabled ?? false;
 
   // Detect if this is a meeting request
-  console.log('[EmailHandler] Checking if email is a meeting request...');
   const meetingClassification = await detectMeetingRequest({
     from: emailData.from,
     subject: emailData.subject,
     body: emailData.body || emailData.snippet,
   });
-
-  console.log(
-    `[EmailHandler] Meeting detection: isMeeting=${meetingClassification.isMeetingRequest}, confidence=${meetingClassification.confidence}`
-  );
 
   let draftBody: string;
   // Track availability status for persistence
@@ -361,10 +348,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     ? meetingClassification.isUrgent
     : detectUrgency(emailData.subject, emailData.body || emailData.snippet);
 
-  if (isUrgent) {
-    console.log('[EmailHandler] Email flagged as URGENT');
-  }
-
   // Track event creation params for when user is available (accessible outside meeting block)
   let shouldCreateEvent = false;
   let eventStartTime: string | null = null;
@@ -372,8 +355,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
 
   // Handle meeting request emails with calendar integration
   if (shouldCheckCalendar(meetingClassification) && calendarEnabled) {
-    console.log('[EmailHandler] Processing as meeting request with calendar check...');
-
     // Track whether we successfully checked calendar availability
     let calendarCheckSucceeded = false;
     let isAvailable = false;
@@ -392,8 +373,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
           proposedTime,
           meetingClassification.durationMinutes ?? 30
         );
-
-        console.log(`[EmailHandler] Checking availability: ${start.toISOString()} to ${end.toISOString()}`);
 
         const availability = await checkAvailability(userId, start.toISOString(), end.toISOString());
 
@@ -438,17 +417,11 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
             }
           }
 
-          console.log(`[EmailHandler] Availability: ${isAvailable ? 'AVAILABLE' : 'BUSY'}`);
         }
-      } else if (!calendarConnection.connected) {
-        console.log('[EmailHandler] Calendar not connected');
-      } else {
-        console.log('[EmailHandler] No proposed times in meeting request');
       }
     } catch (calendarError) {
       // Log the error but don't crash - we'll generate a generic meeting response
       console.error('[EmailHandler] Calendar operation failed:', calendarError);
-      console.log('[EmailHandler] Falling back to generic meeting response');
     }
 
     // Get calendly URL for fallback (outside try-catch as it's from user profile, not calendar)
@@ -466,7 +439,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
       );
     } else {
       // Calendar check failed or not available - generate meeting draft without availability
-      console.log('[EmailHandler] Generating generic meeting response (calendar check unavailable)');
       draftBody = await generateMeetingDraftReply(
         emailData,
         userName,
@@ -478,17 +450,14 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     }
   } else {
     // Regular email - generate standard draft reply
-    console.log('[EmailHandler] Generating standard draft reply...');
     draftBody = await generateDraftReply(emailData, userName);
   }
 
   // Extract just the email address from "Name <email>" format
   const emailMatch = emailData.from.match(/<(.+)>/);
   const recipientEmail = emailMatch ? emailMatch[1] : emailData.from;
-  console.log('[EmailHandler] Recipient email:', recipientEmail);
 
   // Create draft in Gmail (and calendar event if user is available)
-  console.log('[EmailHandler] Creating draft in Gmail...');
   try {
     // Build the promises to run in parallel
     const draftPromise = composio.tools.execute(GMAIL_ACTIONS.CREATE_DRAFT, {
@@ -505,8 +474,6 @@ export async function handleEmailWebhook(payload: GmailWebhookPayload): Promise<
     // Create calendar event in parallel if user is available
     let eventPromise: Promise<{ success: boolean; eventId?: string; error?: string }> | null = null;
     if (shouldCreateEvent && eventStartTime) {
-      console.log('[EmailHandler] Creating calendar event in parallel...');
-
       // Build event description from meeting details
       const eventDescription = [
         meetingClassification.meetingPurpose ? `Purpose: ${meetingClassification.meetingPurpose}` : '',
