@@ -26,6 +26,6 @@ export async function initiateGmailConnection(): Promise<GmailConnectResponse> {
   });
 }
 
-export function redirectToGmailAuth(redirectUrl: string): void {
-  window.location.href = redirectUrl;
+export function openGmailAuthPopup(redirectUrl: string): Window | null {
+  return window.open(redirectUrl, '_blank', 'noopener,noreferrer');
 }

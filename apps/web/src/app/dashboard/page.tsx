@@ -6,10 +6,10 @@ import { useSearchParams } from "next/navigation";
 import {
   checkGmailConnection,
   initiateGmailConnection,
-  redirectToGmailAuth,
+  openGmailAuthPopup,
   checkCalendarConnection,
   initiateCalendarConnection,
-  redirectToCalendarAuth,
+  openCalendarAuthPopup,
   getUserSettings,
   updateUserSettings,
   ApiError,
@@ -49,7 +49,19 @@ function DashboardContent() {
   const gmailOauthHandledRef = useRef(false);
   const calendarOauthHandledRef = useRef(false);
 
-  // Handle OAuth callback parameters
+  // Polling intervals for OAuth flow
+  const gmailPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const calendarPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (gmailPollingRef.current) clearInterval(gmailPollingRef.current);
+      if (calendarPollingRef.current) clearInterval(calendarPollingRef.current);
+    };
+  }, []);
+
+  // Handle OAuth callback parameters (for same-tab fallback)
   useEffect(() => {
     const gmailConnectedParam = searchParams.get("gmail_connected");
     const gmailErrorParam = searchParams.get("gmail_error");
@@ -125,7 +137,31 @@ function DashboardContent() {
     setGmailError(null);
     try {
       const { redirectUrl } = await initiateGmailConnection();
-      redirectToGmailAuth(redirectUrl);
+      openGmailAuthPopup(redirectUrl);
+
+      // Start polling to detect when OAuth completes
+      gmailPollingRef.current = setInterval(async () => {
+        try {
+          const status = await checkGmailConnection();
+          if (status.connected) {
+            if (gmailPollingRef.current) clearInterval(gmailPollingRef.current);
+            gmailPollingRef.current = null;
+            setGmailConnected(true);
+            setGmailConnecting(false);
+          }
+        } catch {
+          // Ignore polling errors, keep trying
+        }
+      }, 2000);
+
+      // Stop polling after 5 minutes (timeout)
+      setTimeout(() => {
+        if (gmailPollingRef.current) {
+          clearInterval(gmailPollingRef.current);
+          gmailPollingRef.current = null;
+          setGmailConnecting(false);
+        }
+      }, 300000);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Network error";
       setGmailError(message);
@@ -142,7 +178,31 @@ function DashboardContent() {
         setCalendarConnected(true);
         setCalendarConnecting(false);
       } else if (result.redirectUrl) {
-        redirectToCalendarAuth(result.redirectUrl);
+        openCalendarAuthPopup(result.redirectUrl);
+
+        // Start polling to detect when OAuth completes
+        calendarPollingRef.current = setInterval(async () => {
+          try {
+            const status = await checkCalendarConnection();
+            if (status.connected) {
+              if (calendarPollingRef.current) clearInterval(calendarPollingRef.current);
+              calendarPollingRef.current = null;
+              setCalendarConnected(true);
+              setCalendarConnecting(false);
+            }
+          } catch {
+            // Ignore polling errors, keep trying
+          }
+        }, 2000);
+
+        // Stop polling after 5 minutes (timeout)
+        setTimeout(() => {
+          if (calendarPollingRef.current) {
+            clearInterval(calendarPollingRef.current);
+            calendarPollingRef.current = null;
+            setCalendarConnecting(false);
+          }
+        }, 300000);
       }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Network error";

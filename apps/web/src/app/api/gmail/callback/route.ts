@@ -47,5 +47,5 @@ export async function GET(request: Request) {
     : `${userId.substring(0, 4)}...${userId.substring(userId.length - 4)}`;
   console.log(`Gmail OAuth callback completed for user_${anonymizedId}`);
 
-  return NextResponse.redirect(`${baseUrl}/dashboard?gmail_connected=true`);
+  return NextResponse.redirect(`${baseUrl}/oauth-success?service=gmail`);
 }

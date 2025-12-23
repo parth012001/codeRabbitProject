@@ -16,6 +16,6 @@ export async function initiateCalendarConnection(): Promise<CalendarConnectRespo
   });
 }
 
-export function redirectToCalendarAuth(redirectUrl: string): void {
-  window.location.href = redirectUrl;
+export function openCalendarAuthPopup(redirectUrl: string): Window | null {
+  return window.open(redirectUrl, '_blank', 'noopener,noreferrer');
 }

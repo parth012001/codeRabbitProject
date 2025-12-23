@@ -5,14 +5,14 @@ export { ApiError, apiRequest, getMastraApiUrl, getMastraBaseUrl } from './clien
 export {
   checkGmailConnection,
   initiateGmailConnection,
-  redirectToGmailAuth,
+  openGmailAuthPopup,
 } from './gmail';
 
 // Calendar API
 export {
   checkCalendarConnection,
   initiateCalendarConnection,
-  redirectToCalendarAuth,
+  openCalendarAuthPopup,
 } from './calendar';
 
 // Settings API
