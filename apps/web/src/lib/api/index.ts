@@ -6,6 +6,7 @@ export {
   checkGmailConnection,
   initiateGmailConnection,
   openGmailAuthPopup,
+  setupGmailTrigger,
 } from './gmail';
 
 // Calendar API

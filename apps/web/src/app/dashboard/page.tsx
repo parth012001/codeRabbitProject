@@ -7,6 +7,7 @@ import {
   checkGmailConnection,
   initiateGmailConnection,
   openGmailAuthPopup,
+  setupGmailTrigger,
   checkCalendarConnection,
   initiateCalendarConnection,
   openCalendarAuthPopup,
@@ -97,6 +98,16 @@ function DashboardContent() {
       try {
         const gmailStatus = await checkGmailConnection();
         setGmailConnected(gmailStatus.connected);
+
+        // If Gmail is already connected, ensure trigger is set up
+        // This handles users who connected before trigger setup was automatic
+        if (gmailStatus.connected) {
+          try {
+            await setupGmailTrigger();
+          } catch {
+            // Non-blocking: trigger might already exist, which is fine
+          }
+        }
       } catch (error) {
         console.error("Failed to check Gmail connection:", error);
         setGmailConnected(false);
@@ -148,6 +159,19 @@ function DashboardContent() {
             gmailPollingRef.current = null;
             setGmailConnected(true);
             setGmailConnecting(false);
+
+            // Set up Gmail trigger for webhooks (critical for new emails to be processed)
+            try {
+              const triggerResult = await setupGmailTrigger();
+              if (triggerResult.success) {
+                console.log('Gmail trigger set up successfully:', triggerResult.triggerId);
+              } else {
+                console.warn('Gmail trigger setup returned error:', triggerResult.error);
+              }
+            } catch (triggerError) {
+              // Non-blocking: log error but don't fail the connection flow
+              console.error('Failed to set up Gmail trigger:', triggerError);
+            }
           }
         } catch {
           // Ignore polling errors, keep trying

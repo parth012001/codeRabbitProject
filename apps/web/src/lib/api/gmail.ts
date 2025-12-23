@@ -5,6 +5,12 @@ import type {
 import { apiRequest, ApiError } from './client';
 import { API_TIMEOUTS } from '../config/timeouts';
 
+interface TriggerSetupResponse {
+  success: boolean;
+  triggerId?: string;
+  error?: string;
+}
+
 export async function checkGmailConnection(): Promise<GmailConnectionStatus> {
   try {
     return await apiRequest<GmailConnectionStatus>('/api/gmail/status', {
@@ -28,4 +34,18 @@ export async function initiateGmailConnection(): Promise<GmailConnectResponse> {
 
 export function openGmailAuthPopup(redirectUrl: string): Window | null {
   return window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+}
+
+export async function setupGmailTrigger(): Promise<TriggerSetupResponse> {
+  try {
+    return await apiRequest<TriggerSetupResponse>('/api/gmail/trigger', {
+      method: 'POST',
+      timeout: API_TIMEOUTS.CONNECTION,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      console.error('Gmail trigger setup failed:', error.message);
+    }
+    throw error;
+  }
 }
