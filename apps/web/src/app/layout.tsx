@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import Image from 'next/image';
 import {
   ClerkProvider,
   SignInButton,
@@ -38,9 +39,18 @@ export default function RootLayout({
           <DashboardHeaderWrapper>
             <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-slate-200/50">
               <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Noa
-                </h1>
+                <div className="flex items-center gap-2">
+                  <Image
+                    src="/logo.png"
+                    alt="Noa Logo"
+                    width={32}
+                    height={32}
+                    className="rounded-lg"
+                  />
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Noa
+                  </h1>
+                </div>
                 <div className="flex items-center gap-3">
                   <SignedOut>
                     <SignInButton mode="modal">
