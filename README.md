@@ -2,6 +2,14 @@
 
 An AI-powered email copilot that works in the shadows. Connect your Gmail and Calendar once — Noa handles the rest. Drafts appear in your inbox, meetings land on your calendar, and you get an executive brief every morning. No new apps to learn. No new behaviors required.
 
+## Demo & Resources
+
+| Resource | Link |
+|----------|------|
+| Demo Video | [Watch the full product walkthrough](https://drive.google.com/file/d/1ZY2uhKS3_mSAslDAOgHxdN7z9Tre37AL/view?usp=drive_link) |
+| Presentation | [View the project presentation](https://drive.google.com/file/d/1G88ImKTh1iUmQY0BN7WbmH0YF9q9t8nn/view?usp=drive_link) |
+| CodeRabbit Review | [AI code review feedback](https://drive.google.com/file/d/1e1HZwBkFV_yxe6Vd9UIW-9B170DMonwF/view?usp=drive_link) |
+
 ## What Noa Does
 
 - **Auto-drafts replies** — Context-aware, tone-matched responses generated before you open Gmail
